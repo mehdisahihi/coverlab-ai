@@ -28,6 +28,10 @@ export default function CreateCover() {
   const [publisher, setPublisher] = useState("");
   const [journal, setJournal] = useState("");
   const [artworkType, setArtworkType] = useState("");
+  const [
+  manualPolicyConfirmed,
+  setManualPolicyConfirmed,
+  ] = useState(false);
 
   // STEP 3 — Scientific assets
   const [files, setFiles] = useState<File[]>([]);
@@ -155,9 +159,13 @@ export default function CreateCover() {
             setJournal={setJournal}
             artworkType={artworkType}
             setArtworkType={setArtworkType}
+
+            manualPolicyConfirmed={manualPolicyConfirmed}
+            setManualPolicyConfirmed={setManualPolicyConfirmed}
+
             onBack={() => setStep(1)}
             onContinue={() => setStep(3)}
-          />
+         />
         )}
 
         {/* STEP 3 */}
@@ -269,11 +277,21 @@ export default function CreateCover() {
         {step === 8 && productionBrief && (
           <ArtworkStep
            brief={productionBrief}
+           publisher={publisher}
+           journal={journal}
+           artworkType={artworkType}
+           manualPolicyConfirmed={manualPolicyConfirmed}
+
+           files={files}
+           assetNotes={assetNotes}
+           preserveAssets={preserveAssets}
+
            initialImage={artworkImage}
            setInitialImage={setArtworkImage}
+
            onBack={() => setStep(7)}
          />
-       )} 
+        )}
 
         
       </div>

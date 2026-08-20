@@ -128,6 +128,104 @@ export async function POST(request: Request) {
       );
     }
 
+    const isGraphicalAbstract =
+  artworkType ===
+  "Graphical Abstract";
+
+const artworkRoleInstruction =
+  isGraphicalAbstract
+    ? `
+GRAPHICAL ABSTRACT MODE
+
+This production brief is for a GRAPHICAL ABSTRACT.
+
+The primary purpose is scientific communication,
+not decorative cover art.
+
+Prioritize:
+
+- immediate comprehension of the central scientific message,
+- clear visual hierarchy,
+- a logical reading direction,
+- clear relationships between scientifically supported elements,
+- restrained composition,
+- strong separation between stages, objects, or concepts,
+- minimal visual clutter,
+- scientifically meaningful spatial organization,
+- accurate representation of supplied scientific assets.
+
+The composition may use:
+
+- left-to-right progression,
+- top-to-bottom progression,
+- central-process layouts,
+- before/after relationships,
+- input-process-output organization,
+
+but ONLY when those relationships are supported by the research.
+
+Do not invent arrows, causal pathways, mechanisms,
+transformations, or process stages unless explicitly supported.
+
+Avoid making the graphical abstract look like:
+
+- journal-cover artwork,
+- cinematic concept art,
+- an advertising poster,
+- a decorative scientific scene.
+
+TEXT AND LABELS
+
+Do not invent text, labels, formulas, equations,
+numeric values, legends, or annotations.
+
+If text is scientifically necessary, describe where
+a researcher-supplied label could later be placed rather
+than asking the image model to generate typography.
+
+The image-generation instruction should focus on
+a clean scientific communication layout.
+`
+    : `
+JOURNAL COVER MODE
+
+This production brief is for JOURNAL COVER artwork.
+
+The primary purpose is scientifically responsible,
+editorially compelling visual storytelling.
+
+Prioritize:
+
+- a strong focal subject,
+- visual impact at cover scale,
+- elegant scientific metaphor where justified,
+- sophisticated depth, materials, lighting and atmosphere,
+- coherent visual hierarchy,
+- clear negative space where journal branding or masthead
+  may later be placed,
+- scientific fidelity even when the visual treatment
+  is artistic.
+
+The cover should feel like premium scientific editorial artwork,
+not like a data figure or graphical abstract.
+
+Avoid:
+
+- panel-based infographic layouts,
+- excessive arrows,
+- schematic process diagrams,
+- dense explanatory structure,
+- decorative equations,
+- labels,
+- article titles,
+- journal logos,
+- mastheads,
+- generated typography.
+
+The image-generation instruction should describe
+one unified, visually powerful cover composition.
+`;
+
     const response = await openai.responses.create({
       model: "gpt-5.6-luna",
 
@@ -256,8 +354,15 @@ ${preserveAssets ? "Yes" : "No"}
 Additional art direction:
 ${artNotes || "None"}
 
-Build a production brief suitable for generating one strong,
-scientifically responsible journal-cover artwork.
+${isGraphicalAbstract
+  ? `Build a production brief for one clear, scientifically responsible graphical abstract.
+
+The result should communicate the central scientific story efficiently
+and should NOT be treated as journal-cover artwork.`
+  : `Build a production brief for one premium, scientifically responsible journal-cover artwork.
+
+The result should prioritize editorial visual impact while preserving
+scientific meaning and should NOT resemble a graphical abstract.`}
       `,
 
       text: {
