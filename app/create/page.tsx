@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 import ResearchStep from "../../components/create/ResearchStep";
 import JournalStep from "../../components/create/JournalStep";
@@ -15,6 +19,10 @@ import ProductionBriefStep, {
   type ProductionBrief,
 } from "../../components/create/ProductionBriefStep";
 import ArtworkStep from "../../components/create/ArtworkStep";
+import {
+  type HydratedProject,
+  useProjectPersistence,
+} from "../../components/create/useProjectPersistence";
 
 export default function CreateCover() {
   const [step, setStep] = useState(1);
@@ -29,8 +37,8 @@ export default function CreateCover() {
   const [journal, setJournal] = useState("");
   const [artworkType, setArtworkType] = useState("");
   const [
-  manualPolicyConfirmed,
-  setManualPolicyConfirmed,
+    manualPolicyConfirmed,
+    setManualPolicyConfirmed,
   ] = useState(false);
 
   // STEP 3 — Scientific assets
@@ -58,17 +66,199 @@ export default function CreateCover() {
   const [artNotes, setArtNotes] = useState("");
   const [productionBrief, setProductionBrief] = useState<ProductionBrief | null>(null);
   const [artworkImage, setArtworkImage] = useState<string | null>(null);
+
+  const hydrateProject =
+    useCallback(
+      (saved: HydratedProject) => {
+        setStep(saved.step);
+        setTitle(saved.title);
+        setAbstract(saved.abstract);
+        setKeywords(saved.keywords);
+        setPublisher(saved.publisher);
+        setJournal(saved.journal);
+        setArtworkType(saved.artworkType);
+
+        setAssetNotes(
+          saved.state.assetNotes
+        );
+        setVisualStyle(
+          saved.state.visualStyle
+        );
+        setVisualEmphasis(
+          saved.state.visualEmphasis
+        );
+        setVisualMood(
+          saved.state.visualMood
+        );
+        setVisualNotes(
+          saved.state.visualNotes
+        );
+        setConceptResult(
+          saved.state.conceptResult as
+            | AIResult
+            | null
+        );
+        setSelectedConcept(
+          saved.state.selectedConcept as
+            | Concept
+            | null
+        );
+        setArtRealism(
+          saved.state.artRealism
+        );
+        setArtFreedom(
+          saved.state.artFreedom
+        );
+        setArtComposition(
+          saved.state.artComposition
+        );
+        setArtColorDirection(
+          saved.state.artColorDirection
+        );
+        setPreserveAssets(
+          saved.state.preserveAssets
+        );
+        setArtNotes(
+          saved.state.artNotes
+        );
+        setProductionBrief(
+          saved.state.productionBrief as
+            | ProductionBrief
+            | null
+        );
+
+        /*
+         * Security / data-integrity boundary:
+         *
+         * - policy acknowledgement must be explicit
+         *   for the current session/target,
+         * - File objects cannot be reconstructed from
+         *   metadata,
+         * - generated image bytes belong in versioned
+         *   storage, not the project JSON document.
+         */
+        setManualPolicyConfirmed(false);
+        setFiles([]);
+        setArtworkImage(null);
+      },
+      []
+    );
+
+  const projectSnapshot =
+    useMemo(
+      () => ({
+        researchTitle:
+          title,
+        researchAbstract:
+          abstract,
+        researchKeywords:
+          keywords,
+        publisher,
+        journal,
+        artworkType,
+        currentStep:
+          step,
+        state: {
+          assetNotes,
+          visualStyle,
+          visualEmphasis,
+          visualMood,
+          visualNotes,
+          conceptResult,
+          selectedConcept,
+          artRealism,
+          artFreedom,
+          artComposition,
+          artColorDirection,
+          preserveAssets,
+          artNotes,
+          productionBrief,
+        },
+      }),
+      [
+        title,
+        abstract,
+        keywords,
+        publisher,
+        journal,
+        artworkType,
+        step,
+        assetNotes,
+        visualStyle,
+        visualEmphasis,
+        visualMood,
+        visualNotes,
+        conceptResult,
+        selectedConcept,
+        artRealism,
+        artFreedom,
+        artComposition,
+        artColorDirection,
+        preserveAssets,
+        artNotes,
+        productionBrief,
+      ]
+    );
+
+  const {
+    status:
+      persistenceStatus,
+    error:
+      persistenceError,
+  } =
+    useProjectPersistence({
+      snapshot:
+        projectSnapshot,
+      onHydrate:
+        hydrateProject,
+    });
+
+  const saveLabel =
+    persistenceStatus ===
+    "loading"
+      ? "Loading project…"
+      : persistenceStatus ===
+          "saving"
+        ? "Saving…"
+        : persistenceStatus ===
+            "saved"
+          ? "Saved"
+          : persistenceStatus ===
+              "error"
+            ? "Save attention"
+            : "New project";
+
   return (
     <main className="min-h-screen bg-[#070B14] text-white">
       {/* Header */}
       <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-6 py-5">
           <a href="/" className="text-xl font-semibold tracking-tight">
             CoverLab<span className="text-cyan-400">AI</span>
           </a>
 
-          <div className="text-sm text-slate-400">
-            Create scientific cover
+          <div className="flex items-center gap-4 text-sm text-slate-400">
+            <a
+              href="/projects"
+              className="transition hover:text-white"
+            >
+              Projects
+            </a>
+
+            <span
+              className={
+                persistenceStatus ===
+                "error"
+                  ? "text-amber-300"
+                  : "text-slate-500"
+              }
+              title={
+                persistenceError ??
+                undefined
+              }
+            >
+              {saveLabel}
+            </span>
           </div>
         </div>
       </header>
@@ -292,8 +482,6 @@ export default function CreateCover() {
            onBack={() => setStep(7)}
          />
         )}
-
-        
       </div>
     </main>
   );
