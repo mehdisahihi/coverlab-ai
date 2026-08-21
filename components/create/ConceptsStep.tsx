@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -56,6 +57,7 @@ export default function ConceptsStep({
 }: ConceptsStepProps) {
   const [loading, setLoading] = useState(!result);
   const [error, setError] = useState("");
+  const initialRequestStartedRef = useRef(false);
 
   async function generateConcepts() {
     try {
@@ -85,15 +87,14 @@ export default function ConceptsStep({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
+        setError(
           data.error || "Failed to generate concepts."
         );
+        return;
       }
 
       setResult(data);
     } catch (err) {
-      console.error(err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -105,10 +106,15 @@ export default function ConceptsStep({
   }
 
   useEffect(() => {
-    // Do not spend another API request if concepts
-    // were already generated earlier.
-    if (!result) {
-      generateConcepts();
+    // React Strict Mode intentionally runs an extra effect cycle in
+    // development. Keep the initial AI request idempotent so one visit
+    // to this step cannot accidentally spend two provider calls.
+    if (
+      !result &&
+      !initialRequestStartedRef.current
+    ) {
+      initialRequestStartedRef.current = true;
+      void generateConcepts();
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
