@@ -247,10 +247,21 @@ export function usePublicationAiPolicy({
     loading,
     error,
 
+    /*
+     * Only a hard publication prohibition should
+     * disable the artwork controls at this layer.
+     *
+     * manual-check remains classified as manual-check
+     * in the UI. The Journal step requires the author
+     * acknowledgement before continuing, and every
+     * expensive AI endpoint independently enforces
+     * manualPolicyConfirmed server-side.
+     */
     blocked:
       Boolean(
         policy &&
-          !policy.allowed
+          policy.status ===
+            "not-allowed"
       ),
   };
 }
