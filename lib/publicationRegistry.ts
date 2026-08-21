@@ -245,9 +245,9 @@ export const publisherPolicies: PublisherPolicy[] = [
 
     aiPolicies: {
       "Graphical Abstract": policy(
-        "not-allowed",
+        "manual-check",
         null,
-        "General-purpose generative AI image tools must not be used to create graphical abstracts.",
+        "Elsevier states that general-purpose generative AI image tools must not be used to create graphical abstracts and encourages dedicated scientific illustration tools. CoverLab is designed specifically for scientific publication artwork, but CoverLab does not determine on the author's behalf whether its use satisfies the applicable Elsevier or journal requirements. Author verification is required before proceeding.",
         "https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals"
       ),
 
