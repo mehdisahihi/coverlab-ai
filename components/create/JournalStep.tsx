@@ -463,9 +463,21 @@ export default function JournalStep({
 
   useEffect(
     () => {
+      const typedPublisher =
+        publisher.trim();
+
+      const typedJournal =
+        journal.trim();
+
       if (
-        !selectedResult ||
-        !artworkType
+        !artworkType ||
+        (
+          !selectedResult &&
+          (
+            !typedPublisher ||
+            !typedJournal
+          )
+        )
       ) {
         resolveRequestIdRef.current +=
           1;
@@ -514,15 +526,25 @@ export default function JournalStep({
 
             try {
               const params =
-                new URLSearchParams({
-                  publisherId:
-                    selectedResult.publisherId,
+                selectedResult
+                  ? new URLSearchParams({
+                      publisherId:
+                        selectedResult.publisherId,
 
-                  journalId:
-                    selectedResult.journalId,
+                      journalId:
+                        selectedResult.journalId,
 
-                  artworkType,
-                });
+                      artworkType,
+                    })
+                  : new URLSearchParams({
+                      publisher:
+                        typedPublisher,
+
+                      journal:
+                        typedJournal,
+
+                      artworkType,
+                    });
 
               const response =
                 await fetch(
@@ -624,6 +646,8 @@ export default function JournalStep({
     },
     [
       selectedResult,
+      publisher,
+      journal,
       artworkType,
     ]
   );
@@ -812,6 +836,15 @@ export default function JournalStep({
     resolvedTarget
       ?.aiPolicy ??
     null;
+
+  const requiresManualPolicyConfirmation =
+    resolvedTarget
+      ?.requiresManualPolicyCheck ===
+    true;
+
+  const policyHardBlocked =
+    aiPolicy?.status ===
+    "not-allowed";
 
 
   return (
@@ -1072,7 +1105,8 @@ export default function JournalStep({
 
         {/* Resolver loading */}
 
-        {selectedResult &&
+        {publisher.trim() &&
+          journal.trim() &&
           artworkType &&
           isResolving && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
@@ -1352,8 +1386,7 @@ export default function JournalStep({
                       )}
 
 
-                    {aiPolicy.status ===
-                      "manual-check" && (
+                    {resolvedTarget.requiresManualPolicyCheck && (
                       <label
                         className={`mt-5 flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
                           manualPolicyConfirmed
@@ -1420,6 +1453,52 @@ export default function JournalStep({
                     relying on
                     generative AI.
                   </p>
+                )}
+
+                {!aiPolicy &&
+                  resolvedTarget.requiresManualPolicyCheck && (
+                  <label
+                    className={`mt-5 flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                      manualPolicyConfirmed
+                        ? "border-emerald-400/30 bg-emerald-400/[0.05]"
+                        : "border-amber-300/20 bg-amber-300/[0.04]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        manualPolicyConfirmed
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setManualPolicyConfirmed(
+                          event.target
+                            .checked
+                        )
+                      }
+                      className="mt-1"
+                    />
+
+                    <span>
+                      <span className="block text-sm font-medium text-slate-200">
+                        Author verification
+                      </span>
+
+                      <span className="mt-1 block text-sm leading-6 text-slate-400">
+                        I have reviewed the
+                        applicable publisher
+                        and journal
+                        requirements and
+                        confirm that I am
+                        responsible for
+                        determining whether
+                        this AI-assisted
+                        workflow is permitted
+                        for my submission.
+                      </span>
+                    </span>
+                  </label>
                 )}
               </div>
 
@@ -1519,14 +1598,18 @@ export default function JournalStep({
               </p>
 
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                This publication has
-                not been selected from
-                the registry. Its
-                technical requirements
-                and AI policy must be
-                verified manually
-                before publication
-                export.
+                This publication was
+                entered manually.
+                CoverLab will resolve
+                the typed names against
+                available registry data
+                where possible. Any
+                unresolved technical
+                requirement or AI
+                policy remains a manual
+                check, and publication
+                export still requires a
+                verified exact profile.
               </p>
             </div>
           )}
@@ -1554,9 +1637,14 @@ export default function JournalStep({
               !publisher.trim() ||
               !journal.trim() ||
               !artworkType ||
+              isResolving ||
+              !resolvedTarget ||
+              Boolean(
+                resolutionError
+              ) ||
+              policyHardBlocked ||
               (
-                aiPolicy?.status ===
-                  "manual-check" &&
+                requiresManualPolicyConfirmation &&
                 !manualPolicyConfirmed
               )
             }
