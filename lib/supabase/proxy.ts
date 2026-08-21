@@ -7,25 +7,8 @@ import {
 } from "next/server";
 
 import {
-  resolveAiUsageTarget,
-} from "@/lib/usage/aiUsageRoutes";
-import {
   getSupabasePublicConfig,
 } from "./config";
-
-type AiUsageReservation = {
-  allowed?: boolean;
-  code?: string;
-  eventId?: string;
-  operation?: string;
-  retryAfterSeconds?: number;
-  minuteCount?: number;
-  hourCount?: number;
-  dayCount?: number;
-  minuteLimit?: number;
-  hourLimit?: number;
-  dayLimit?: number;
-};
 
 function isProtectedBrowserPath(
   pathname: string
@@ -242,133 +225,6 @@ export async function updateSession(
       {
         status: 410,
       }
-    );
-  }
-
-  const usageTarget =
-    resolveAiUsageTarget(
-      request.method,
-      pathname
-    );
-
-  if (
-    usageTarget &&
-    userId
-  ) {
-    const {
-      data: reservationData,
-      error: reservationError,
-    } =
-      await supabase.rpc(
-        "reserve_ai_usage",
-        {
-          p_operation:
-            usageTarget.operation,
-          p_model:
-            usageTarget.model,
-          p_metadata: {
-            path:
-              pathname,
-            method:
-              request.method,
-          },
-        }
-      );
-
-    if (reservationError) {
-      console.error(
-        "AI usage guard error:",
-        reservationError
-      );
-
-      return jsonResponse(
-        response,
-        {
-          error:
-            "AI usage controls are temporarily unavailable. No AI request was started.",
-          code:
-            "AI_USAGE_GUARD_UNAVAILABLE",
-        },
-        {
-          status: 503,
-        }
-      );
-    }
-
-    const reservation =
-      reservationData as
-        | AiUsageReservation
-        | null;
-
-    if (
-      !reservation ||
-      reservation.allowed !==
-        true
-    ) {
-      const retryAfter =
-        Math.max(
-          1,
-          reservation
-            ?.retryAfterSeconds ??
-            60
-        );
-
-      const disabled =
-        reservation?.code ===
-        "AI_USAGE_DISABLED";
-
-      return jsonResponse(
-        response,
-        {
-          error:
-            disabled
-              ? "This AI operation is temporarily unavailable."
-              : "You have reached the current CoverLab usage limit for this AI operation.",
-          code:
-            reservation?.code ??
-            "AI_USAGE_LIMIT_REACHED",
-          usage: {
-            operation:
-              usageTarget.operation,
-            retryAfterSeconds:
-              retryAfter,
-            minuteCount:
-              reservation
-                ?.minuteCount,
-            hourCount:
-              reservation
-                ?.hourCount,
-            dayCount:
-              reservation
-                ?.dayCount,
-            minuteLimit:
-              reservation
-                ?.minuteLimit,
-            hourLimit:
-              reservation
-                ?.hourLimit,
-            dayLimit:
-              reservation
-                ?.dayLimit,
-          },
-        },
-        {
-          status:
-            disabled
-              ? 503
-              : 429,
-          headers: {
-            "Retry-After":
-              retryAfter.toString(),
-          },
-        }
-      );
-    }
-
-    response.headers.set(
-      "X-CoverLab-Usage-Event",
-      reservation.eventId ??
-        "reserved"
     );
   }
 
