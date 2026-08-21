@@ -24,6 +24,33 @@ function safeNext(
   return value;
 }
 
+function appOrigin(
+  request: NextRequest
+) {
+  const configuredSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configuredSiteUrl) {
+    return new URL(
+      configuredSiteUrl
+    ).origin;
+  }
+
+  const codespaceName =
+    process.env.CODESPACE_NAME;
+  const forwardingDomain =
+    process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+
+  if (
+    codespaceName &&
+    forwardingDomain
+  ) {
+    return `https://${codespaceName}-3000.${forwardingDomain}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
 export async function GET(
   request: NextRequest
 ) {
@@ -43,6 +70,9 @@ export async function GET(
     )
   );
 
+  const origin =
+    appOrigin(request);
+
   if (tokenHash && type) {
     const supabase =
       await createClient();
@@ -60,7 +90,7 @@ export async function GET(
       return NextResponse.redirect(
         new URL(
           next,
-          request.url
+          origin
         )
       );
     }
@@ -69,7 +99,7 @@ export async function GET(
   const redirectUrl =
     new URL(
       "/auth/login",
-      request.url
+      origin
     );
 
   redirectUrl.searchParams.set(
