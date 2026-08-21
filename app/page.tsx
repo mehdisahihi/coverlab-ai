@@ -1,4 +1,38 @@
-export default function Home() {
+import {
+  signOut,
+} from "@/app/auth/actions";
+import {
+  createClient,
+} from "@/lib/supabase/server";
+
+async function isAuthenticated() {
+  const configured =
+    Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    );
+
+  if (!configured) {
+    return false;
+  }
+
+  const supabase =
+    await createClient();
+
+  const {
+    data,
+  } =
+    await supabase.auth.getClaims();
+
+  return Boolean(
+    data?.claims?.sub
+  );
+}
+
+export default async function Home() {
+  const signedIn =
+    await isAuthenticated();
+
   return (
     <main className="min-h-screen bg-[#070B14] text-white">
       {/* Navigation */}
@@ -13,9 +47,31 @@ export default function Home() {
           <a href="#pricing">Pricing</a>
         </div>
 
-        <button className="rounded-full border border-white/20 px-5 py-2 text-sm hover:bg-white/10">
-          Sign in
-        </button>
+        <div className="flex items-center gap-3">
+          {signedIn && (
+            <a
+              href="/projects"
+              className="hidden text-sm text-slate-300 transition hover:text-white sm:inline"
+            >
+              Projects
+            </a>
+          )}
+
+          {signedIn ? (
+            <form action={signOut}>
+              <button className="rounded-full border border-white/20 px-5 py-2 text-sm transition hover:bg-white/10">
+                Sign out
+              </button>
+            </form>
+          ) : (
+            <a
+              href="/auth/login"
+              className="rounded-full border border-white/20 px-5 py-2 text-sm transition hover:bg-white/10"
+            >
+              Sign in
+            </a>
+          )}
+        </div>
       </nav>
 
       {/* Hero */}
@@ -58,24 +114,24 @@ export default function Home() {
           </p>
         </div>
 
-<div className="relative">
-  <div className="absolute -inset-16 bg-cyan-500/10 blur-3xl" />
+        <div className="relative">
+          <div className="absolute -inset-16 bg-cyan-500/10 blur-3xl" />
 
-  <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
-    <img
-      src="/hero-cover.png"
-      alt="AI-generated scientific cover concept"
-      className="aspect-[4/5] w-full rounded-2xl object-cover"
-    />
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
+            <img
+              src="/hero-cover.png"
+              alt="AI-generated scientific cover concept"
+              className="aspect-[4/5] w-full rounded-2xl object-cover"
+            />
 
-    <div className="absolute bottom-7 left-7 rounded-xl border border-cyan-400/30 bg-black/60 px-4 py-3 backdrop-blur-md">
-      <p className="text-sm font-medium text-white">AI-generated concept</p>
-      <p className="mt-1 text-xs text-slate-300">
-        Scientific direction preserved
-      </p>
-    </div>
-  </div>
-</div>
+            <div className="absolute bottom-7 left-7 rounded-xl border border-cyan-400/30 bg-black/60 px-4 py-3 backdrop-blur-md">
+              <p className="text-sm font-medium text-white">AI-generated concept</p>
+              <p className="mt-1 text-xs text-slate-300">
+                Scientific direction preserved
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* How it works */}
