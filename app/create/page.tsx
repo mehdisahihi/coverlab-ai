@@ -6,6 +6,9 @@ import {
   useState,
 } from "react";
 
+import {
+  signOut,
+} from "../auth/actions";
 import ResearchStep from "../../components/create/ResearchStep";
 import JournalStep from "../../components/create/JournalStep";
 import AssetsStep from "../../components/create/AssetsStep";
@@ -259,6 +262,12 @@ export default function CreateCover() {
             >
               {saveLabel}
             </span>
+
+            <form action={signOut}>
+              <button className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-white">
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
       </header>
