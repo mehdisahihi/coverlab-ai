@@ -10,7 +10,7 @@ import {
   getSupabasePublicConfig,
 } from "./config";
 
-function isProtectedPath(
+function isProtectedBrowserPath(
   pathname: string
 ) {
   return (
@@ -21,6 +21,29 @@ function isProtectedPath(
     pathname === "/projects" ||
     pathname.startsWith(
       "/projects/"
+    )
+  );
+}
+
+function isProtectedApiPath(
+  pathname: string
+) {
+  return (
+    pathname === "/api/projects" ||
+    pathname.startsWith(
+      "/api/projects/"
+    ) ||
+    pathname === "/api/concepts" ||
+    pathname ===
+      "/api/production-brief" ||
+    pathname ===
+      "/api/generate-artwork" ||
+    pathname ===
+      "/api/refine-artwork" ||
+    pathname ===
+      "/api/enhance-publication-artwork" ||
+    pathname.startsWith(
+      "/api/enhance-publication-artwork/"
     )
   );
 }
@@ -94,11 +117,36 @@ export async function updateSession(
       ? data.claims.sub
       : null;
 
+  const pathname =
+    request.nextUrl.pathname;
+  const unauthenticated =
+    Boolean(
+      error ||
+      !userId
+    );
+
   if (
-    isProtectedPath(
-      request.nextUrl.pathname
+    isProtectedApiPath(
+      pathname
     ) &&
-    (error || !userId)
+    unauthenticated
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Authentication required.",
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
+  if (
+    isProtectedBrowserPath(
+      pathname
+    ) &&
+    unauthenticated
   ) {
     const redirectUrl =
       request.nextUrl.clone();
