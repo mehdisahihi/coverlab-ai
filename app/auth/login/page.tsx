@@ -1,7 +1,4 @@
-import {
-  signIn,
-  signUp,
-} from "../actions";
+import AuthForm from "./AuthForm";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -74,71 +71,10 @@ export default async function LoginPage({
             </div>
           )}
 
-          <form className="mt-7 space-y-4">
-            <input
-              type="hidden"
-              name="next"
-              value={next}
-            />
-
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-2 block text-sm font-medium text-slate-200"
-              >
-                Email
-              </label>
-
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                className="w-full rounded-xl border border-white/10 bg-[#0d121c] px-4 py-3.5 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60"
-                placeholder="researcher@example.com"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-2 block text-sm font-medium text-slate-200"
-              >
-                Password
-              </label>
-
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="current-password"
-                className="w-full rounded-xl border border-white/10 bg-[#0d121c] px-4 py-3.5 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60"
-                placeholder="At least 8 characters"
-              />
-            </div>
-
-            <div className="grid gap-3 pt-2 sm:grid-cols-2">
-              <button
-                formAction={signIn}
-                className="rounded-full bg-white px-5 py-3 font-medium text-black transition hover:bg-slate-200"
-              >
-                Sign in
-              </button>
-
-              <button
-                formAction={signUp}
-                className="rounded-full border border-white/15 px-5 py-3 font-medium text-white transition hover:bg-white/[0.06]"
-              >
-                Create account
-              </button>
-            </div>
-          </form>
+          <AuthForm next={next} />
 
           <p className="mt-6 text-xs leading-5 text-slate-500">
-            New accounts may require email confirmation depending on the Supabase Auth project settings.
+            New accounts require email confirmation. Bot protection is provided by Cloudflare Turnstile.
           </p>
         </div>
       </div>
