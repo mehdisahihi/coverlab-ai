@@ -3,6 +3,9 @@
 import { useState } from "react";
 
 import PublicationAiPolicyNotice from "./PublicationAiPolicyNotice";
+import {
+  useArtworkPersistence,
+} from "./ArtworkPersistenceContext";
 
 import {
   usePublicationAiPolicy,
@@ -29,7 +32,10 @@ type RefinementPanelProps = {
     dataUrl: string;
   }[];
 
-  onRefined: (image: string) => void;
+  onRefined:
+    (
+      image: string
+    ) => void | Promise<void>;
 };
 
 export default function RefinementPanel({
@@ -48,6 +54,9 @@ export default function RefinementPanel({
 
   onRefined,
 }: RefinementPanelProps) {
+  const artworkPersistence =
+    useArtworkPersistence();
+
   const [preserveScientificContent, setPreserveScientificContent] =
     useState(true);
 
@@ -160,16 +169,50 @@ export default function RefinementPanel({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
+        setError(
           data.error ||
             "Failed to refine artwork."
         );
+        return;
       }
 
-      onRefined(data.image);
-    } catch (err) {
-      console.error(err);
+      if (
+        !data?.image ||
+        typeof data.image !==
+          "string"
+      ) {
+        setError(
+          "The refinement endpoint returned no artwork image."
+        );
+        return;
+      }
 
+      if (artworkPersistence) {
+        await artworkPersistence.persistVersion({
+          image:
+            data.image,
+          operation:
+            "refinement",
+          sourceVersionId:
+            artworkPersistence.selectedVersionId,
+          selectAfterSave:
+            false,
+          metadata: {
+            label:
+              "Scientific refinement",
+            direction,
+            preserveScientificContent,
+            removeUnverifiedElements,
+            changeComposition,
+            changeLighting,
+          },
+        });
+      }
+
+      await onRefined(
+        data.image
+      );
+    } catch (err) {
       setError(
         err instanceof Error
           ? err.message
