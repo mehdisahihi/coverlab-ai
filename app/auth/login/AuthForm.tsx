@@ -62,12 +62,21 @@ export default function AuthForm({
       </div>
 
       <div>
-        <label
-          htmlFor="password"
-          className="mb-2 block text-sm font-medium text-slate-200"
-        >
-          Password
-        </label>
+        <div className="mb-2 flex items-center justify-between gap-4">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-slate-200"
+          >
+            Password
+          </label>
+
+          <a
+            href="/auth/forgot-password"
+            className="text-xs font-medium text-cyan-300 transition hover:text-cyan-200"
+          >
+            Forgot password?
+          </a>
+        </div>
 
         <input
           id="password"
