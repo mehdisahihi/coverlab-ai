@@ -233,6 +233,15 @@ export function useArtworkVersions({
             await Promise.all(
               rows.map(
                 async (row) => {
+                  const imagePath =
+                    row.image_path;
+
+                  if (!imagePath) {
+                    throw new Error(
+                      "Stored artwork version is missing its image path."
+                    );
+                  }
+
                   const {
                     data: blob,
                     error:
@@ -243,7 +252,7 @@ export function useArtworkVersions({
                         ARTWORK_VERSION_BUCKET
                       )
                       .download(
-                        row.image_path
+                        imagePath
                       );
 
                   if (

@@ -179,21 +179,33 @@ export default function ArtworkStep(
         return;
       }
 
-      const latest =
-        storedVersions[
-          storedVersions.length - 1
-        ];
+      const latestSelectable =
+        [...storedVersions]
+          .reverse()
+          .find(
+            (version) =>
+              version.operation !==
+              "enhancement"
+          );
+
+      if (!latestSelectable) {
+        setSelectedVersionId(
+          null
+        );
+
+        return;
+      }
 
       setSelectedVersionId(
-        latest.id
+        latestSelectable.id
       );
 
       if (
         props.initialImage !==
-        latest.image
+        latestSelectable.image
       ) {
         props.setInitialImage(
-          latest.image
+          latestSelectable.image
         );
       }
     },
@@ -628,6 +640,13 @@ export default function ArtworkStep(
     version:
       StoredArtworkVersion
   ) {
+    if (
+      version.operation ===
+      "enhancement"
+    ) {
+      return;
+    }
+
     setSelectedVersionId(
       version.id
     );

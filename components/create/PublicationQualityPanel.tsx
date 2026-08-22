@@ -15,6 +15,15 @@ import PublicationAiPolicyNotice from "./PublicationAiPolicyNotice";
 import {
   useArtworkPersistence,
 } from "./ArtworkPersistenceContext";
+import {
+  ARTWORK_VERSIONS_CHANGED_EVENT,
+} from "./useArtworkVersions";
+import {
+  createClient,
+} from "@/lib/supabase/client";
+import {
+  ARTWORK_VERSION_BUCKET,
+} from "@/lib/storage/artworkVersions";
 
 import {
   usePublicationAiPolicy,
@@ -547,6 +556,47 @@ export default function PublicationQualityPanel({
       return;
     }
 
+    const projectId =
+      new URLSearchParams(
+        window.location.search
+      ).get("project");
+
+    const sourceVersionId =
+      artworkPersistence
+        ?.selectedVersionId ??
+      null;
+
+    const completedAnalysis =
+      analysis;
+
+    if (
+      !projectId ||
+      !sourceVersionId
+    ) {
+      setError(
+        "A saved source artwork version is required before enhancement."
+      );
+
+      return;
+    }
+
+    if (!completedAnalysis) {
+      setError(
+        "Publication crop analysis is no longer available."
+      );
+
+      return;
+    }
+
+    const targetWidth =
+      crop.targetWidth;
+    const targetHeight =
+      crop.targetHeight;
+    const enhancementWidth =
+      completedAnalysis.compatibleWidth;
+    const enhancementHeight =
+      completedAnalysis.compatibleHeight;
+
     const thisPollRun =
       pollRunRef.current +
       1;
@@ -629,6 +679,10 @@ export default function PublicationQualityPanel({
                 artworkType,
 
                 manualPolicyConfirmed,
+
+                projectId,
+
+                sourceVersionId,
               }),
           }
         );
@@ -684,7 +738,13 @@ export default function PublicationQualityPanel({
 
       await pollEnhancement(
         data.responseId,
-        thisPollRun
+        thisPollRun,
+        projectId,
+        sourceVersionId,
+        targetWidth,
+        targetHeight,
+        enhancementWidth,
+        enhancementHeight
       );
     } catch (err) {
       console.error(
@@ -715,7 +775,13 @@ export default function PublicationQualityPanel({
 
   async function pollEnhancement(
     responseId: string,
-    pollRun: number
+    pollRun: number,
+    projectId: string,
+    sourceVersionId: string,
+    targetWidth: number,
+    targetHeight: number,
+    enhancementWidth: number,
+    enhancementHeight: number
   ) {
     /*
       120 checks × 2.5 sec
@@ -745,11 +811,25 @@ export default function PublicationQualityPanel({
         return;
       }
 
+      const statusParams =
+        new URLSearchParams({
+          id:
+            responseId,
+          projectId,
+          sourceVersionId,
+          targetWidth:
+            targetWidth.toString(),
+          targetHeight:
+            targetHeight.toString(),
+          enhancementWidth:
+            enhancementWidth.toString(),
+          enhancementHeight:
+            enhancementHeight.toString(),
+        });
+
       const response =
         await fetch(
-          `/api/enhance-publication-artwork/status?id=${encodeURIComponent(
-            responseId
-          )}`,
+          `/api/enhance-publication-artwork/status?${statusParams.toString()}`,
           {
             method:
               "GET",
@@ -758,128 +838,6 @@ export default function PublicationQualityPanel({
               "no-store",
           }
         );
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        ) || "";
-
-      /*
-        Completed job returns raw PNG.
-      */
-
-      if (
-        response.ok &&
-        contentType.includes(
-          "image/"
-        )
-      ) {
-        const blob =
-          await response.blob();
-
-        if (
-          blob.size ===
-          0
-        ) {
-          throw new Error(
-            "The completed enhancement returned an empty image."
-          );
-        }
-
-        const objectUrl =
-          URL.createObjectURL(
-            blob
-          );
-
-        if (
-          pollRunRef.current !==
-          pollRun
-        ) {
-          URL.revokeObjectURL(
-            objectUrl
-          );
-
-          return;
-        }
-
-        const completedCrop =
-          crop;
-        const completedAnalysis =
-          analysis;
-
-        if (
-          !completedCrop ||
-          !completedAnalysis
-        ) {
-          URL.revokeObjectURL(
-            objectUrl
-          );
-
-          throw new Error(
-            "Publication crop analysis is no longer available."
-          );
-        }
-
-        if (artworkPersistence) {
-          try {
-            await artworkPersistence.persistVersion({
-              image:
-                objectUrl,
-              operation:
-                "enhancement",
-              sourceVersionId:
-                artworkPersistence.selectedVersionId,
-              selectAfterSave:
-                false,
-              metadata: {
-                label:
-                  "Detail-enhanced candidate",
-                providerResponseId:
-                  responseId,
-                targetWidth:
-                  completedCrop.targetWidth,
-                targetHeight:
-                  completedCrop.targetHeight,
-                enhancementWidth:
-                  completedAnalysis.compatibleWidth,
-                enhancementHeight:
-                  completedAnalysis.compatibleHeight,
-              },
-            });
-          } catch (persistError) {
-            URL.revokeObjectURL(
-              objectUrl
-            );
-            throw persistError;
-          }
-        }
-
-        if (
-          objectUrlRef.current
-        ) {
-          URL.revokeObjectURL(
-            objectUrlRef.current
-          );
-        }
-
-        objectUrlRef.current =
-          objectUrl;
-
-        setEnhancedImage(
-          objectUrl
-        );
-
-        setJobState(
-          "completed"
-        );
-
-        return;
-      }
-
-      /*
-        Otherwise endpoint returns JSON
-        containing job state.
-      */
 
       const data =
         await readJsonResponse(
@@ -938,14 +896,99 @@ export default function PublicationQualityPanel({
         status ===
           "completed"
       ) {
-        /*
-          Normally completed returns PNG,
-          so reaching this point is unexpected.
-        */
+        const imagePath =
+          data?.version
+            ?.image_path;
 
-        throw new Error(
-          "The enhancement completed but no image payload was returned."
+        if (
+          typeof imagePath !==
+            "string" ||
+          !imagePath
+        ) {
+          throw new Error(
+            "The enhancement completed but no stored artwork path was returned."
+          );
+        }
+
+        const supabase =
+          createClient();
+
+        const {
+          data:
+            storedBlob,
+          error:
+            downloadError,
+        } =
+          await supabase.storage
+            .from(
+              ARTWORK_VERSION_BUCKET
+            )
+            .download(
+              imagePath
+            );
+
+        if (
+          downloadError ||
+          !storedBlob
+        ) {
+          throw new Error(
+            downloadError
+              ?.message ||
+              "The enhancement was stored, but CoverLab could not restore the private candidate."
+          );
+        }
+
+        if (
+          storedBlob.size ===
+          0
+        ) {
+          throw new Error(
+            "The stored enhancement candidate is empty."
+          );
+        }
+
+        const objectUrl =
+          URL.createObjectURL(
+            storedBlob
+          );
+
+        if (
+          pollRunRef.current !==
+          pollRun
+        ) {
+          URL.revokeObjectURL(
+            objectUrl
+          );
+
+          return;
+        }
+
+        if (
+          objectUrlRef.current
+        ) {
+          URL.revokeObjectURL(
+            objectUrlRef.current
+          );
+        }
+
+        objectUrlRef.current =
+          objectUrl;
+
+        setEnhancedImage(
+          objectUrl
         );
+
+        window.dispatchEvent(
+          new Event(
+            ARTWORK_VERSIONS_CHANGED_EVENT
+          )
+        );
+
+        setJobState(
+          "completed"
+        );
+
+        return;
       }
     }
 
