@@ -26,6 +26,9 @@ import {
   type HydratedProject,
   useProjectPersistence,
 } from "../../components/create/useProjectPersistence";
+import {
+  useProjectAssets,
+} from "../../components/create/useProjectAssets";
 
 export default function CreateCover() {
   const [step, setStep] = useState(1);
@@ -45,7 +48,6 @@ export default function CreateCover() {
   ] = useState(false);
 
   // STEP 3 — Scientific assets
-  const [files, setFiles] = useState<File[]>([]);
   const [assetNotes, setAssetNotes] = useState("");
 
   // STEP 4 — Visual direction
@@ -135,13 +137,12 @@ export default function CreateCover() {
          *
          * - policy acknowledgement must be explicit
          *   for the current session/target,
-         * - File objects cannot be reconstructed from
-         *   metadata,
+         * - scientific assets are reloaded independently
+         *   from private Storage metadata,
          * - generated image bytes belong in versioned
          *   storage, not the project JSON document.
          */
         setManualPolicyConfirmed(false);
-        setFiles([]);
         setArtworkImage(null);
       },
       []
@@ -204,10 +205,12 @@ export default function CreateCover() {
     );
 
   const {
+    projectId,
     status:
       persistenceStatus,
     error:
       persistenceError,
+    saveNow,
   } =
     useProjectPersistence({
       snapshot:
@@ -215,6 +218,18 @@ export default function CreateCover() {
       onHydrate:
         hydrateProject,
     });
+
+  const {
+    assets,
+    setAssets,
+    loading:
+      assetsLoading,
+    error:
+      assetsLoadError,
+  } =
+    useProjectAssets(
+      projectId
+    );
 
   const saveLabel =
     persistenceStatus ===
@@ -329,9 +344,9 @@ export default function CreateCover() {
             />
 
             <Step
-             number="08"
-             title="Artwork"
-             active={step === 8}
+              number="08"
+              title="Artwork"
+              active={step === 8}
             />
           </div>
         </aside>
@@ -364,14 +379,18 @@ export default function CreateCover() {
 
             onBack={() => setStep(1)}
             onContinue={() => setStep(3)}
-         />
+          />
         )}
 
         {/* STEP 3 */}
         {step === 3 && (
           <AssetsStep
-            files={files}
-            setFiles={setFiles}
+            assets={assets}
+            setAssets={setAssets}
+            projectId={projectId}
+            ensureProject={saveNow}
+            assetsLoading={assetsLoading}
+            assetsLoadError={assetsLoadError}
             notes={assetNotes}
             setNotes={setAssetNotes}
             onBack={() => setStep(2)}
@@ -438,7 +457,7 @@ export default function CreateCover() {
           />
         )}
 
-        {/* STEP 7 — temporary placeholder */}
+        {/* STEP 7 */}
         {step === 7 && selectedConcept && (
           <ProductionBriefStep
             title={title}
@@ -456,7 +475,10 @@ export default function CreateCover() {
             visualNotes={visualNotes}
 
             assetNotes={assetNotes}
-            assetNames={files.map((file) => file.name)}
+            assetNames={assets.map(
+              (asset) =>
+                asset.originalName
+            )}
 
             realism={artRealism}
             freedom={artFreedom}
@@ -470,26 +492,26 @@ export default function CreateCover() {
 
             onBack={() => setStep(6)}
             onGenerateArtwork={() => setStep(8)}
-         />
-       )}
+          />
+        )}
 
         {step === 8 && productionBrief && (
           <ArtworkStep
-           brief={productionBrief}
-           publisher={publisher}
-           journal={journal}
-           artworkType={artworkType}
-           manualPolicyConfirmed={manualPolicyConfirmed}
+            brief={productionBrief}
+            publisher={publisher}
+            journal={journal}
+            artworkType={artworkType}
+            manualPolicyConfirmed={manualPolicyConfirmed}
 
-           files={files}
-           assetNotes={assetNotes}
-           preserveAssets={preserveAssets}
+            assets={assets}
+            assetNotes={assetNotes}
+            preserveAssets={preserveAssets}
 
-           initialImage={artworkImage}
-           setInitialImage={setArtworkImage}
+            initialImage={artworkImage}
+            setInitialImage={setArtworkImage}
 
-           onBack={() => setStep(7)}
-         />
+            onBack={() => setStep(7)}
+          />
         )}
       </div>
     </main>
