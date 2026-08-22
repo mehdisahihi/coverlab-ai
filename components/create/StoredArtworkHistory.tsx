@@ -20,6 +20,10 @@ type Props = {
     ) => void;
 };
 
+type DownloadFormat =
+  | "PNG"
+  | "TIFF";
+
 function labelForVersion(
   version: StoredArtworkVersion,
   index: number
@@ -89,30 +93,74 @@ function metadataDimension(
   return null;
 }
 
-function filenameForVersion(
+function fallbackFilename(
   version: StoredArtworkVersion,
-  index: number
+  index: number,
+  format: DownloadFormat
 ) {
   const suffix =
-    version.operation === "generation"
+    version.operation ===
+      "generation"
       ? "generated"
-      : version.operation === "refinement"
+      : version.operation ===
+          "refinement"
         ? "refined"
         : "enhanced-candidate";
 
-  return `coverlab-version-${index + 1}-${suffix}.png`;
+  const extension =
+    format === "TIFF"
+      ? "tif"
+      : "png";
+
+  return `coverlab-version-${index + 1}-${suffix}.${extension}`;
 }
 
-function downloadImage(
-  source: string,
+function filenameFromHeader(
+  value: string | null
+) {
+  if (!value) {
+    return null;
+  }
+
+  const utf8Match =
+    value.match(
+      /filename\*=UTF-8''([^;]+)/i
+    );
+
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(
+        utf8Match[1]
+      );
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const basicMatch =
+    value.match(
+      /filename="?([^";]+)"?/i
+    );
+
+  return basicMatch?.[1] ??
+    null;
+}
+
+function triggerBlobDownload(
+  blob: Blob,
   filename: string
 ) {
+  const objectUrl =
+    URL.createObjectURL(
+      blob
+    );
+
   const link =
     document.createElement(
       "a"
     );
 
-  link.href = source;
+  link.href = objectUrl;
   link.download = filename;
   link.rel = "noopener";
 
@@ -125,38 +173,42 @@ function downloadImage(
   document.body.removeChild(
     link
   );
+
+  window.setTimeout(
+    () => {
+      URL.revokeObjectURL(
+        objectUrl
+      );
+    },
+    1000
+  );
 }
 
-function DownloadButton({
-  version,
-  index,
-  label = "Download PNG",
+function FormatButton({
+  format,
+  busy,
   compact = false,
+  onClick,
 }: {
-  version: StoredArtworkVersion;
-  index: number;
-  label?: string;
+  format: DownloadFormat;
+  busy: boolean;
   compact?: boolean;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={() =>
-        downloadImage(
-          version.image,
-          filenameForVersion(
-            version,
-            index
-          )
-        )
-      }
+      onClick={onClick}
+      disabled={busy}
       className={
         compact
-          ? "rounded-full border border-white/10 px-3 py-2 text-xs text-slate-200 transition hover:border-white/25 hover:bg-white/[0.04]"
-          : "rounded-full border border-white/15 px-4 py-2.5 text-sm text-white transition hover:border-white/30 hover:bg-white/[0.05]"
+          ? "rounded-full border border-white/10 px-3 py-2 text-xs text-slate-200 transition enabled:hover:border-white/25 enabled:hover:bg-white/[0.04] disabled:cursor-wait disabled:opacity-50"
+          : "rounded-full border border-white/15 px-4 py-2.5 text-sm text-white transition enabled:hover:border-white/30 enabled:hover:bg-white/[0.05] disabled:cursor-wait disabled:opacity-50"
       }
     >
-      ↓ {label}
+      {busy
+        ? "Preparing…"
+        : `↓ ${format}`}
     </button>
   );
 }
@@ -179,6 +231,22 @@ export default function StoredArtworkHistory({
     setViewerOpen,
   ] =
     useState(false);
+
+  const [
+    downloadKey,
+    setDownloadKey,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    downloadError,
+    setDownloadError,
+  ] =
+    useState<string | null>(
+      null
+    );
 
   const previousLatestIdRef =
     useRef<string | null>(
@@ -339,6 +407,140 @@ export default function StoredArtworkHistory({
     }
   }
 
+  async function downloadVersion(
+    version: StoredArtworkVersion,
+    index: number,
+    format: DownloadFormat
+  ) {
+    const key =
+      `${version.id}:${format}`;
+
+    if (downloadKey) {
+      return;
+    }
+
+    try {
+      setDownloadKey(key);
+      setDownloadError(null);
+
+      const response =
+        await fetch(
+          `/api/projects/${encodeURIComponent(
+            version.projectId
+          )}/versions/${encodeURIComponent(
+            version.id
+          )}/download?format=${encodeURIComponent(
+            format
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+      if (!response.ok) {
+        let message =
+          `Could not download ${format}. HTTP ${response.status}.`;
+
+        try {
+          const data =
+            await response.json();
+
+          if (
+            data &&
+            typeof data.error ===
+              "string"
+          ) {
+            message =
+              data.error;
+          }
+        } catch {
+          /* keep fallback */
+        }
+
+        throw new Error(
+          message
+        );
+      }
+
+      const blob =
+        await response.blob();
+
+      if (blob.size === 0) {
+        throw new Error(
+          "The downloaded artwork file is empty."
+        );
+      }
+
+      const filename =
+        filenameFromHeader(
+          response.headers.get(
+            "Content-Disposition"
+          )
+        ) ??
+        fallbackFilename(
+          version,
+          index,
+          format
+        );
+
+      triggerBlobDownload(
+        blob,
+        filename
+      );
+    } catch (error) {
+      setDownloadError(
+        error instanceof Error
+          ? error.message
+          : "Could not download the artwork version."
+      );
+    } finally {
+      setDownloadKey(null);
+    }
+  }
+
+  function downloadButtons(
+    version: StoredArtworkVersion,
+    index: number,
+    compact = false
+  ) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <FormatButton
+          format="PNG"
+          compact={compact}
+          busy={
+            downloadKey ===
+            `${version.id}:PNG`
+          }
+          onClick={() => {
+            void downloadVersion(
+              version,
+              index,
+              "PNG"
+            );
+          }}
+        />
+
+        <FormatButton
+          format="TIFF"
+          compact={compact}
+          busy={
+            downloadKey ===
+            `${version.id}:TIFF`
+          }
+          onClick={() => {
+            void downloadVersion(
+              version,
+              index,
+              "TIFF"
+            );
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mt-12 w-full max-w-6xl">
@@ -353,7 +555,7 @@ export default function StoredArtworkHistory({
             </h2>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              Open any version in the large viewer for inspection and download. Generated and refined versions can become the active artwork. Enhancement results remain scientific-review candidates until you approve their fidelity in the publication-quality workflow.
+              All saved versions are shown in a responsive grid with no horizontal ribbon. Open any version for a large preview. Generated and refined versions can become the active artwork; enhancement results remain scientific-review candidates until publication-quality approval.
             </p>
           </div>
 
@@ -364,6 +566,18 @@ export default function StoredArtworkHistory({
               ? ""
               : "s"}
           </p>
+        </div>
+
+        {downloadError && (
+          <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/[0.05] p-4">
+            <p className="text-sm text-red-200">
+              {downloadError}
+            </p>
+          </div>
+        )}
+
+        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs leading-5 text-slate-500">
+          PNG and TIFF here are downloads of the saved version itself. TIFF is a real server-side image conversion, but it is not automatically a journal-ready submission file. Use Final publication export for journal dimensions, DPI, crop and format verification.
         </div>
 
         {previewVersion && (
@@ -418,7 +632,7 @@ export default function StoredArtworkHistory({
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -429,26 +643,9 @@ export default function StoredArtworkHistory({
                   ⛶ Open large viewer
                 </button>
 
-                <DownloadButton
-                  version={previewVersion}
-                  index={previewIndex}
-                  label={
-                    previewVersion.operation ===
-                    "enhancement"
-                      ? "Download enhanced PNG"
-                      : "Download PNG"
-                  }
-                />
-
-                {previewVersion.operation ===
-                  "enhancement" &&
-                  sourceVersion &&
-                  sourceIndex >= 0 && (
-                  <DownloadButton
-                    version={sourceVersion}
-                    index={sourceIndex}
-                    label="Download source PNG"
-                  />
+                {downloadButtons(
+                  previewVersion,
+                  previewIndex
                 )}
 
                 {previewVersion.operation !==
@@ -521,111 +718,124 @@ export default function StoredArtworkHistory({
             </button>
 
             {previewVersion.operation ===
-              "enhancement" && (
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-amber-200/80">
-                Previewing or downloading this candidate does not approve its scientific fidelity and does not replace the active source artwork. Publication-quality approval is still required before export.
-              </p>
+              "enhancement" &&
+              sourceVersion &&
+              sourceIndex >= 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.03] p-4">
+                <p className="max-w-2xl text-sm leading-6 text-amber-200/80">
+                  This candidate remains unapproved scientifically. You can inspect and download it, but publication-quality approval is still required before final export.
+                </p>
+
+                <div>
+                  <p className="mb-2 text-xs text-slate-500">
+                    Source version downloads
+                  </p>
+                  {downloadButtons(
+                    sourceVersion,
+                    sourceIndex,
+                    true
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        <div className="mt-7 overflow-x-auto pb-3">
-          <div className="grid min-w-max grid-flow-col auto-cols-[250px] gap-4 sm:auto-cols-[280px] lg:auto-cols-[300px]">
-            {versions.map(
-              (version, index) => {
-                const active =
-                  version.id ===
-                  selectedVersionId;
-                const previewing =
-                  version.id ===
-                  previewVersion?.id;
-                const isEnhancement =
-                  version.operation ===
-                  "enhancement";
+        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {versions.map(
+            (version, index) => {
+              const active =
+                version.id ===
+                selectedVersionId;
+              const previewing =
+                version.id ===
+                previewVersion?.id;
+              const isEnhancement =
+                version.operation ===
+                "enhancement";
 
-                return (
-                  <article
-                    key={version.id}
-                    className={`overflow-hidden rounded-2xl border transition ${
-                      previewing
-                        ? "border-violet-300/70 bg-violet-300/[0.06]"
-                        : active
-                          ? "border-cyan-300/60 bg-cyan-300/[0.04]"
-                          : "border-white/10 bg-white/[0.02]"
-                    }`}
+              return (
+                <article
+                  key={version.id}
+                  className={`min-w-0 overflow-hidden rounded-2xl border transition ${
+                    previewing
+                      ? "border-violet-300/70 bg-violet-300/[0.06]"
+                      : active
+                        ? "border-cyan-300/60 bg-cyan-300/[0.04]"
+                        : "border-white/10 bg-white/[0.02]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={previewing}
+                    onClick={() =>
+                      handleVersionClick(
+                        version
+                      )
+                    }
+                    className="block w-full text-left transition hover:bg-white/[0.02]"
                   >
-                    <button
-                      type="button"
-                      aria-pressed={previewing}
-                      onClick={() =>
-                        handleVersionClick(
-                          version
-                        )
-                      }
-                      className="block w-full text-left transition hover:bg-white/[0.02]"
-                    >
-                      <div className="flex h-[360px] items-center justify-center overflow-hidden bg-black p-2">
-                        <img
-                          src={version.image}
-                          alt={`Stored artwork version ${index + 1}`}
-                          className="h-full w-full object-contain"
-                        />
-                      </div>
-
-                      <div className="p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium text-white">
-                            Version {index + 1}
-                          </p>
-
-                          {previewing ? (
-                            <span className="text-xs text-violet-200">
-                              Previewing
-                            </span>
-                          ) : active ? (
-                            <span className="text-xs text-cyan-300">
-                              Active
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <p className="mt-1 min-h-10 text-xs leading-5 text-slate-400">
-                          {labelForVersion(
-                            version,
-                            index
-                          )}
-                        </p>
-
-                        <p className={`mt-2 text-[11px] uppercase tracking-widest ${
-                          isEnhancement
-                            ? "text-amber-300/70"
-                            : "text-slate-600"
-                        }`}>
-                          {operationLabel(
-                            version
-                          )}
-                        </p>
-
-                        <p className="mt-2 text-xs leading-5 text-slate-500">
-                          {isEnhancement
-                            ? "Open large source comparison"
-                            : "Open large preview"}
-                        </p>
-                      </div>
-                    </button>
-
-                    <div className="border-t border-white/10 p-3">
-                      <DownloadButton
-                        version={version}
-                        index={index}
-                        compact
+                    <div className="flex h-[320px] items-center justify-center overflow-hidden bg-black p-2 2xl:h-[360px]">
+                      <img
+                        src={version.image}
+                        alt={`Stored artwork version ${index + 1}`}
+                        className="h-full w-full object-contain"
                       />
                     </div>
-                  </article>
-                );
-              }
-            )}
-          </div>
+
+                    <div className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-white">
+                          Version {index + 1}
+                        </p>
+
+                        {previewing ? (
+                          <span className="text-xs text-violet-200">
+                            Previewing
+                          </span>
+                        ) : active ? (
+                          <span className="text-xs text-cyan-300">
+                            Active
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-1 min-h-10 text-xs leading-5 text-slate-400">
+                        {labelForVersion(
+                          version,
+                          index
+                        )}
+                      </p>
+
+                      <p className={`mt-2 text-[11px] uppercase tracking-widest ${
+                        isEnhancement
+                          ? "text-amber-300/70"
+                          : "text-slate-600"
+                      }`}>
+                        {operationLabel(
+                          version
+                        )}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        {isEnhancement
+                          ? "Open large source comparison"
+                          : "Open large preview"}
+                      </p>
+                    </div>
+                  </button>
+
+                  <div className="border-t border-white/10 p-3">
+                    {downloadButtons(
+                      version,
+                      index,
+                      true
+                    )}
+                  </div>
+                </article>
+              );
+            }
+          )}
         </div>
       </div>
 
@@ -666,23 +876,31 @@ export default function StoredArtworkHistory({
                   "enhancement" &&
                   sourceVersion &&
                   sourceIndex >= 0 && (
-                  <DownloadButton
-                    version={sourceVersion}
-                    index={sourceIndex}
-                    label="Source PNG"
-                  />
+                  <div className="flex flex-wrap items-center gap-2 rounded-full border border-white/10 px-2 py-1">
+                    <span className="pl-2 text-xs text-slate-500">
+                      Source
+                    </span>
+                    {downloadButtons(
+                      sourceVersion,
+                      sourceIndex,
+                      true
+                    )}
+                  </div>
                 )}
 
-                <DownloadButton
-                  version={previewVersion}
-                  index={previewIndex}
-                  label={
-                    previewVersion.operation ===
-                    "enhancement"
-                      ? "Enhanced PNG"
-                      : "Version PNG"
-                  }
-                />
+                <div className="flex flex-wrap items-center gap-2 rounded-full border border-white/10 px-2 py-1">
+                  <span className="pl-2 text-xs text-slate-500">
+                    {previewVersion.operation ===
+                      "enhancement"
+                      ? "Enhanced"
+                      : "Version"}
+                  </span>
+                  {downloadButtons(
+                    previewVersion,
+                    previewIndex,
+                    true
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -759,7 +977,7 @@ export default function StoredArtworkHistory({
             {previewVersion.operation ===
               "enhancement" && (
               <p className="mx-auto mt-4 max-w-4xl text-center text-xs leading-5 text-amber-200/70 sm:text-sm">
-                This comparison viewer does not approve the enhancement scientifically. Review the candidate against its source, then complete publication-quality approval before export.
+                This comparison viewer does not approve the enhancement scientifically. Review the candidate against its source, then complete publication-quality approval before final publication export.
               </p>
             )}
           </div>
