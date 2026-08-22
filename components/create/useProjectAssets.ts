@@ -84,6 +84,8 @@ export function useProjectAssets(
         return;
       }
 
+      const activeProjectId = projectId;
+
       async function loadAssets() {
         setLoading(true);
         setError(null);
@@ -92,7 +94,7 @@ export function useProjectAssets(
           const response =
             await fetch(
               `/api/projects/${encodeURIComponent(
-                projectId
+                activeProjectId
               )}/assets`,
               {
                 method: "GET",
