@@ -802,6 +802,24 @@ export default function PublicationQualityPanel({
           return;
         }
 
+        const completedCrop =
+          crop;
+        const completedAnalysis =
+          analysis;
+
+        if (
+          !completedCrop ||
+          !completedAnalysis
+        ) {
+          URL.revokeObjectURL(
+            objectUrl
+          );
+
+          throw new Error(
+            "Publication crop analysis is no longer available."
+          );
+        }
+
         if (artworkPersistence) {
           try {
             await artworkPersistence.persistVersion({
@@ -819,13 +837,13 @@ export default function PublicationQualityPanel({
                 providerResponseId:
                   responseId,
                 targetWidth:
-                  crop.targetWidth,
+                  completedCrop.targetWidth,
                 targetHeight:
-                  crop.targetHeight,
+                  completedCrop.targetHeight,
                 enhancementWidth:
-                  analysis.compatibleWidth,
+                  completedAnalysis.compatibleWidth,
                 enhancementHeight:
-                  analysis.compatibleHeight,
+                  completedAnalysis.compatibleHeight,
               },
             });
           } catch (persistError) {
