@@ -58,10 +58,66 @@ function operationLabel(
     version.operation ===
     "enhancement"
   ) {
-    return "Enhanced";
+    return "Enhanced candidate";
   }
 
   return "Generated";
+}
+
+function VersionCardContent({
+  version,
+  index,
+  selected,
+}: {
+  version: StoredArtworkVersion;
+  index: number;
+  selected: boolean;
+}) {
+  return (
+    <>
+      <div className="aspect-[2/3] overflow-hidden bg-black">
+        <img
+          src={version.image}
+          alt={`Stored artwork version ${index + 1}`}
+          className="h-full w-full object-cover"
+        />
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-white">
+            Version {index + 1}
+          </p>
+
+          {selected && (
+            <span className="text-xs text-cyan-300">
+              Selected
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1 text-xs text-slate-400">
+          {labelForVersion(
+            version,
+            index
+          )}
+        </p>
+
+        <p className="mt-2 text-[11px] uppercase tracking-widest text-slate-600">
+          {operationLabel(
+            version
+          )}
+        </p>
+
+        {version.operation ===
+          "enhancement" && (
+          <p className="mt-2 text-xs leading-5 text-amber-200/80">
+            Candidate only. Scientific quality approval must be reviewed again before export.
+          </p>
+        )}
+      </div>
+    </>
+  );
 }
 
 export default function StoredArtworkHistory({
@@ -105,6 +161,30 @@ export default function StoredArtworkHistory({
             const selected =
               version.id ===
               selectedVersionId;
+            const isEnhancement =
+              version.operation ===
+              "enhancement";
+            const cardClass =
+              `overflow-hidden rounded-2xl border text-left transition ${
+                selected
+                  ? "border-cyan-300 bg-cyan-400/[0.05]"
+                  : "border-white/10 bg-white/[0.02]"
+              }`;
+
+            if (isEnhancement) {
+              return (
+                <div
+                  key={version.id}
+                  className={cardClass}
+                >
+                  <VersionCardContent
+                    version={version}
+                    index={index}
+                    selected={false}
+                  />
+                </div>
+              );
+            }
 
             return (
               <button
@@ -113,53 +193,13 @@ export default function StoredArtworkHistory({
                 onClick={() =>
                   onSelect(version)
                 }
-                className={`overflow-hidden rounded-2xl border text-left transition ${
-                  selected
-                    ? "border-cyan-300 bg-cyan-400/[0.05]"
-                    : "border-white/10 bg-white/[0.02] hover:border-white/20"
-                }`}
+                className={`${cardClass} hover:border-white/20`}
               >
-                <div className="aspect-[2/3] overflow-hidden bg-black">
-                  <img
-                    src={version.image}
-                    alt={`Stored artwork version ${index + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-
-                <div className="p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-white">
-                      Version {index + 1}
-                    </p>
-
-                    {selected && (
-                      <span className="text-xs text-cyan-300">
-                        Selected
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="mt-1 text-xs text-slate-400">
-                    {labelForVersion(
-                      version,
-                      index
-                    )}
-                  </p>
-
-                  <p className="mt-2 text-[11px] uppercase tracking-widest text-slate-600">
-                    {operationLabel(
-                      version
-                    )}
-                  </p>
-
-                  {version.operation ===
-                    "enhancement" && (
-                    <p className="mt-2 text-xs leading-5 text-amber-200/80">
-                      Scientific quality approval must be reviewed again before export.
-                    </p>
-                  )}
-                </div>
+                <VersionCardContent
+                  version={version}
+                  index={index}
+                  selected={selected}
+                />
               </button>
             );
           }
