@@ -85,6 +85,24 @@ function readCredentials(
   };
 }
 
+function readCaptchaToken(
+  formData: FormData
+) {
+  const value =
+    formData.get(
+      "captchaToken"
+    );
+
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    return null;
+  }
+
+  return value.trim();
+}
+
 export async function signIn(
   formData: FormData
 ) {
@@ -109,15 +127,33 @@ export async function signIn(
     );
   }
 
+  const captchaToken =
+    readCaptchaToken(
+      formData
+    );
+
+  if (!captchaToken) {
+    redirect(
+      loginUrl({
+        error:
+          "Complete the bot-protection check and try again.",
+        next,
+      })
+    );
+  }
+
   const supabase =
     await createClient();
 
   const {
     error,
   } =
-    await supabase.auth.signInWithPassword(
-      credentials
-    );
+    await supabase.auth.signInWithPassword({
+      ...credentials,
+      options: {
+        captchaToken,
+      },
+    });
 
   if (error) {
     redirect(
@@ -165,12 +201,27 @@ export async function signUp(
 
   if (
     credentials.password.length <
-    8
+    10
   ) {
     redirect(
       loginUrl({
         error:
-          "Use a password with at least 8 characters.",
+          "Use a password with at least 10 characters.",
+        next,
+      })
+    );
+  }
+
+  const captchaToken =
+    readCaptchaToken(
+      formData
+    );
+
+  if (!captchaToken) {
+    redirect(
+      loginUrl({
+        error:
+          "Complete the bot-protection check and try again.",
         next,
       })
     );
@@ -183,9 +234,12 @@ export async function signUp(
     data,
     error,
   } =
-    await supabase.auth.signUp(
-      credentials
-    );
+    await supabase.auth.signUp({
+      ...credentials,
+      options: {
+        captchaToken,
+      },
+    });
 
   if (error) {
     redirect(
