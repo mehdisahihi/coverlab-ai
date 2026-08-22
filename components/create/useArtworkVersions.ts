@@ -18,6 +18,9 @@ import {
   type StoredArtworkVersion,
 } from "@/lib/storage/artworkVersions";
 
+export const ARTWORK_VERSIONS_CHANGED_EVENT =
+  "coverlab:artwork-versions-changed";
+
 type SaveArtworkVersionInput = {
   image: string;
   operation: ArtworkVersionOperation;
@@ -174,21 +177,16 @@ export function useArtworkVersions({
   ] =
     useState<string | null>(null);
 
-  useEffect(
-    () => {
-      let cancelled = false;
+  const loadVersions =
+    useCallback(
+      async () => {
+        if (!projectId) {
+          setVersions([]);
+          setLoading(false);
+          setError(null);
+          return;
+        }
 
-      if (!projectId) {
-        setVersions([]);
-        setLoading(false);
-        setError(null);
-        return;
-      }
-
-      const activeProjectId =
-        projectId;
-
-      async function loadVersions() {
         setLoading(true);
         setError(null);
 
@@ -196,7 +194,7 @@ export function useArtworkVersions({
           const response =
             await fetch(
               `/api/projects/${encodeURIComponent(
-                activeProjectId
+                projectId
               )}/versions`,
               {
                 method: "GET",
@@ -235,12 +233,6 @@ export function useArtworkVersions({
             await Promise.all(
               rows.map(
                 async (row) => {
-                  if (!row.image_path) {
-                    throw new Error(
-                      "Stored artwork version is missing its image path."
-                    );
-                  }
-
                   const {
                     data: blob,
                     error:
@@ -278,32 +270,42 @@ export function useArtworkVersions({
               )
             );
 
-          if (!cancelled) {
-            setVersions(restored);
-          }
+          setVersions(restored);
         } catch (loadError) {
-          if (!cancelled) {
-            setVersions([]);
-            setError(
-              loadError instanceof Error
-                ? loadError.message
-                : "Could not load artwork version history."
-            );
-          }
+          setVersions([]);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load artwork version history."
+          );
         } finally {
-          if (!cancelled) {
-            setLoading(false);
-          }
+          setLoading(false);
         }
-      }
+      },
+      [projectId]
+    );
 
+  useEffect(
+    () => {
       void loadVersions();
 
+      function handleVersionsChanged() {
+        void loadVersions();
+      }
+
+      window.addEventListener(
+        ARTWORK_VERSIONS_CHANGED_EVENT,
+        handleVersionsChanged
+      );
+
       return () => {
-        cancelled = true;
+        window.removeEventListener(
+          ARTWORK_VERSIONS_CHANGED_EVENT,
+          handleVersionsChanged
+        );
       };
     },
-    [projectId]
+    [loadVersions]
   );
 
   const saveVersion =
