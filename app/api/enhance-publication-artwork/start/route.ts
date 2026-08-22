@@ -132,6 +132,12 @@ export async function POST(
         targetHeight:
           body?.targetHeight ??
           null,
+        projectId:
+          body?.projectId ??
+          null,
+        sourceVersionId:
+          body?.sourceVersionId ??
+          null,
       },
     }
   );
