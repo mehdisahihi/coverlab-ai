@@ -1,4 +1,11 @@
 import {
+  z,
+} from "zod";
+
+import {
+  getAuthenticatedContext,
+} from "@/lib/auth/authenticated";
+import {
   publicationPolicyPreflight,
 } from "@/lib/usage/publicationPolicyPreflight";
 import {
@@ -7,6 +14,9 @@ import {
 import {
   POST as handlePost,
 } from "./handler";
+
+const uuidSchema =
+  z.string().uuid();
 
 export async function POST(
   request: Request
@@ -92,6 +102,148 @@ export async function POST(
     );
   }
 
+  if (
+    !uuidSchema.safeParse(
+      body?.projectId
+    ).success
+  ) {
+    return Response.json(
+      {
+        error:
+          "A valid project ID is required for enhancement.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  if (
+    !uuidSchema.safeParse(
+      body?.sourceVersionId
+    ).success
+  ) {
+    return Response.json(
+      {
+        error:
+          "A valid source artwork version is required for enhancement.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  const {
+    supabase,
+    userId,
+  } =
+    await getAuthenticatedContext();
+
+  if (!userId) {
+    return Response.json(
+      {
+        error:
+          "Authentication required.",
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
+  const {
+    data: project,
+    error: projectError,
+  } =
+    await supabase
+      .from("projects")
+      .select("id")
+      .eq(
+        "id",
+        body.projectId
+      )
+      .maybeSingle();
+
+  if (projectError) {
+    console.error(
+      "Enhancement project validation error:",
+      projectError
+    );
+
+    return Response.json(
+      {
+        error:
+          "Could not validate the enhancement project.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
+  if (!project) {
+    return Response.json(
+      {
+        error:
+          "Project not found.",
+      },
+      {
+        status: 404,
+      }
+    );
+  }
+
+  const {
+    data: sourceVersion,
+    error: sourceError,
+  } =
+    await supabase
+      .from("project_versions")
+      .select("id")
+      .eq(
+        "id",
+        body.sourceVersionId
+      )
+      .eq(
+        "project_id",
+        body.projectId
+      )
+      .eq(
+        "user_id",
+        userId
+      )
+      .maybeSingle();
+
+  if (sourceError) {
+    console.error(
+      "Enhancement source version validation error:",
+      sourceError
+    );
+
+    return Response.json(
+      {
+        error:
+          "Could not validate the source artwork version.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
+  if (!sourceVersion) {
+    return Response.json(
+      {
+        error:
+          "Source artwork version not found.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
   const policyResponse =
     publicationPolicyPreflight({
       publisher:
@@ -133,11 +285,9 @@ export async function POST(
           body?.targetHeight ??
           null,
         projectId:
-          body?.projectId ??
-          null,
+          body.projectId,
         sourceVersionId:
-          body?.sourceVersionId ??
-          null,
+          body.sourceVersionId,
       },
     }
   );
