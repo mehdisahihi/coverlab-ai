@@ -1,6 +1,9 @@
 export const PROJECT_ASSET_BUCKET =
   "project-assets";
 
+export const ARTWORK_VERSION_BUCKET =
+  "artwork-versions";
+
 export const PROJECT_ASSET_MAX_BYTES =
   25 * 1024 * 1024;
 
