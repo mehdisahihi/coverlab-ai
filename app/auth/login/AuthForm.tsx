@@ -74,14 +74,13 @@ export default function AuthForm({
           name="password"
           type="password"
           required
-          minLength={10}
           autoComplete="current-password"
           className="w-full rounded-xl border border-white/10 bg-[#0d121c] px-4 py-3.5 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60"
-          placeholder="At least 10 characters"
+          placeholder="Your password"
         />
 
         <p className="mt-2 text-xs leading-5 text-slate-500">
-          New passwords must include lowercase and uppercase letters, a number and a symbol.
+          New accounts require at least 10 characters with lowercase and uppercase letters, a number and a symbol.
         </p>
       </div>
 
