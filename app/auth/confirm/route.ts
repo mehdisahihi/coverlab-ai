@@ -87,12 +87,34 @@ export async function GET(
       });
 
     if (!error) {
-      return NextResponse.redirect(
-        new URL(
-          next,
-          origin
-        )
-      );
+      const response =
+        NextResponse.redirect(
+          new URL(
+            next,
+            origin
+          )
+        );
+
+      if (type === "recovery") {
+        response.cookies.set(
+          "coverlab_recovery",
+          "1",
+          {
+            httpOnly: true,
+            secure:
+              origin.startsWith(
+                "https://"
+              ),
+            sameSite: "lax",
+            path:
+              "/auth/update-password",
+            maxAge:
+              15 * 60,
+          }
+        );
+      }
+
+      return response;
     }
   }
 
