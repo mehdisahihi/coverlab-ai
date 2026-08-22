@@ -12,6 +12,9 @@ import type {
 } from "./PublicationCropPreview";
 
 import PublicationAiPolicyNotice from "./PublicationAiPolicyNotice";
+import {
+  useArtworkPersistence,
+} from "./ArtworkPersistenceContext";
 
 import {
   usePublicationAiPolicy,
@@ -92,6 +95,9 @@ export default function PublicationQualityPanel({
 
   onEnhancedApprovalChange,
 }: PublicationQualityPanelProps) {
+  const artworkPersistence =
+    useArtworkPersistence();
+
   const [
     croppedPreview,
     setCroppedPreview,
@@ -794,6 +800,40 @@ export default function PublicationQualityPanel({
           );
 
           return;
+        }
+
+        if (artworkPersistence) {
+          try {
+            await artworkPersistence.persistVersion({
+              image:
+                objectUrl,
+              operation:
+                "enhancement",
+              sourceVersionId:
+                artworkPersistence.selectedVersionId,
+              selectAfterSave:
+                false,
+              metadata: {
+                label:
+                  "Detail-enhanced candidate",
+                providerResponseId:
+                  responseId,
+                targetWidth:
+                  crop.targetWidth,
+                targetHeight:
+                  crop.targetHeight,
+                enhancementWidth:
+                  analysis.compatibleWidth,
+                enhancementHeight:
+                  analysis.compatibleHeight,
+              },
+            });
+          } catch (persistError) {
+            URL.revokeObjectURL(
+              objectUrl
+            );
+            throw persistError;
+          }
         }
 
         if (
