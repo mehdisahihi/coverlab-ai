@@ -49,8 +49,14 @@ export async function GET(
     return response;
   }
 
+  /*
+   * Provider completion and durable-storage completion
+   * are separate concerns. Once OpenAI has completed the
+   * background job, billable usage must be finalized as
+   * succeeded even if storing the result later fails.
+   */
+
   if (
-    response.ok &&
     response.headers.get(
       "X-CoverLab-Enhancement-Status"
     ) === "completed"
