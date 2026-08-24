@@ -68,13 +68,11 @@ export function aiRequestOriginGuard(
     return null;
   }
 
-  let requestOrigin: string;
+  let originHost: string;
 
   try {
-    requestOrigin =
-      new URL(
-        request.url
-      ).origin;
+    originHost =
+      new URL(origin).host;
   } catch {
     return Response.json(
       {
@@ -91,7 +89,49 @@ export function aiRequestOriginGuard(
     );
   }
 
-  if (origin !== requestOrigin) {
+  const allowedHosts =
+    new Set<string>();
+
+  try {
+    allowedHosts.add(
+      new URL(
+        request.url
+      ).host
+    );
+  } catch {
+    /* request.url is framework supplied; host headers below remain available */
+  }
+
+  const forwardedHost =
+    request.headers.get(
+      "x-forwarded-host"
+    )
+      ?.split(",")[0]
+      ?.trim();
+
+  if (forwardedHost) {
+    allowedHosts.add(
+      forwardedHost
+    );
+  }
+
+  const host =
+    request.headers.get(
+      "host"
+    )?.trim();
+
+  if (host) {
+    allowedHosts.add(
+      host
+    );
+  }
+
+  if (
+    allowedHosts.size === 0 ||
+    !allowedHosts.has(
+      originHost
+    )
+  ) {
     return Response.json(
       {
         error:
