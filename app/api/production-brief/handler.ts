@@ -1,9 +1,11 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import {
+  createOpenAiClientRequestId,
+  getOpenAiClient,
+  logOpenAiSdkError,
+  openAiTextRequestOptions,
+} from "@/lib/openai/client";
 
 const productionBriefSchema = {
   type: "object",
@@ -90,6 +92,9 @@ const productionBriefSchema = {
 };
 
 export async function POST(request: Request) {
+  const clientRequestId =
+    createOpenAiClientRequestId();
+
   try {
     const body = await request.json();
 
@@ -129,12 +134,12 @@ export async function POST(request: Request) {
     }
 
     const isGraphicalAbstract =
-  artworkType ===
-  "Graphical Abstract";
+      artworkType ===
+      "Graphical Abstract";
 
-const artworkRoleInstruction =
-  isGraphicalAbstract
-    ? `
+    const artworkRoleInstruction =
+      isGraphicalAbstract
+        ? `
 GRAPHICAL ABSTRACT MODE
 
 This production brief is for a GRAPHICAL ABSTRACT.
@@ -186,7 +191,7 @@ than asking the image model to generate typography.
 The image-generation instruction should focus on
 a clean scientific communication layout.
 `
-    : `
+        : `
 JOURNAL COVER MODE
 
 This production brief is for JOURNAL COVER artwork.
@@ -226,10 +231,16 @@ The image-generation instruction should describe
 one unified, visually powerful cover composition.
 `;
 
-    const response = await openai.responses.create({
-      model: "gpt-5.6-luna",
+    const openai =
+      getOpenAiClient();
 
-      instructions: `
+    const response =
+      await openai.responses.create(
+        {
+          model: "gpt-5.6-luna",
+          store: false,
+
+          instructions: `
 You are the production art director for CoverLab AI.
 
 Your task is to convert a scientifically validated journal-cover concept
@@ -268,7 +279,7 @@ The final image_generation_instruction should be a coherent,
 high-quality production prompt, not a summary of the brief.
       `,
 
-      input: `
+          input: `
 RESEARCH
 
 Title:
@@ -365,39 +376,48 @@ The result should prioritize editorial visual impact while preserving
 scientific meaning and should NOT resemble a graphical abstract.`}
       `,
 
-      text: {
-        format: {
-          type: "json_schema",
-          name: "production_brief",
-          strict: true,
-          schema: productionBriefSchema,
+          text: {
+            format: {
+              type: "json_schema",
+              name: "production_brief",
+              strict: true,
+              schema: productionBriefSchema,
+            },
+          },
         },
-      },
-    });
+        openAiTextRequestOptions(
+          clientRequestId
+        )
+      );
 
     if (!response.output_text) {
       return NextResponse.json(
         {
           error: "No production brief was returned.",
         },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
-    const result = JSON.parse(response.output_text);
+    const result =
+      JSON.parse(
+        response.output_text
+      );
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Production brief error:", error);
+    logOpenAiSdkError(
+      "Production brief OpenAI error:",
+      error,
+      clientRequestId
+    );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to build production brief.",
+          "Failed to build production brief.",
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
