@@ -1,4 +1,8 @@
 import {
+  aiServiceUnavailableResponse,
+  isOpenAiConfigured,
+} from "@/lib/openai/runtime";
+import {
   runMeteredAiPost,
 } from "@/lib/usage/meteredRoute";
 import {
@@ -42,16 +46,8 @@ export async function POST(
     );
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return Response.json(
-      {
-        error:
-          "OPENAI_API_KEY is not configured.",
-      },
-      {
-        status: 500,
-      }
-    );
+  if (!isOpenAiConfigured()) {
+    return aiServiceUnavailableResponse();
   }
 
   return runMeteredAiPost(
