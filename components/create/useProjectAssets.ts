@@ -91,6 +91,30 @@ export function useProjectAssets(
         setError(null);
 
         try {
+          try {
+            const cleanupResponse =
+              await fetch(
+                `/api/projects/${encodeURIComponent(
+                  activeProjectId
+                )}/storage-cleanup`,
+                {
+                  method: "POST",
+                  cache: "no-store",
+                }
+              );
+
+            if (!cleanupResponse.ok) {
+              console.warn(
+                "Stale private storage cleanup did not complete. Project loading will continue."
+              );
+            }
+          } catch (cleanupError) {
+            console.warn(
+              "Stale private storage cleanup request failed. Project loading will continue.",
+              cleanupError
+            );
+          }
+
           const response =
             await fetch(
               `/api/projects/${encodeURIComponent(
