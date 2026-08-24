@@ -6,6 +6,13 @@ import {
   getAuthenticatedContext,
 } from "@/lib/auth/authenticated";
 import {
+  createOpenAiClientRequestId,
+  logOpenAiHttpFailure,
+  logOpenAiSdkError,
+  OPENAI_STATUS_TIMEOUT_MS,
+  openAiFetch,
+} from "@/lib/openai/client";
+import {
   ARTWORK_VERSION_BUCKET,
   ARTWORK_VERSION_MAX_BYTES,
   expectedArtworkVersionPath,
@@ -24,7 +31,7 @@ function completedJson(
       status,
       headers: {
         "Cache-Control":
-          "no-store",
+          "private, no-store, max-age=0",
         "X-CoverLab-Enhancement-Status":
           "completed",
       },
@@ -51,19 +58,10 @@ function optionalPositiveInteger(
 export async function GET(
   request: Request
 ) {
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      return Response.json(
-        {
-          error:
-            "OPENAI_API_KEY is not configured.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
+  const clientRequestId =
+    createOpenAiClientRequestId();
 
+  try {
     const url =
       new URL(
         request.url
@@ -146,12 +144,6 @@ export async function GET(
       );
     }
 
-    /*
-     * A background response ID may only be polled
-     * by the authenticated user who reserved the
-     * enhancement operation.
-     */
-
     const {
       data: usageEvent,
       error: usageLookupError,
@@ -175,8 +167,7 @@ export async function GET(
 
     if (usageLookupError) {
       console.error(
-        "Enhancement usage ownership lookup error:",
-        usageLookupError
+        "Enhancement usage ownership lookup failed."
       );
 
       return Response.json(
@@ -202,42 +193,42 @@ export async function GET(
       );
     }
 
-    /*
-     * Retrieve the current OpenAI background state.
-     */
-
     const openaiResponse =
-      await fetch(
-        `https://api.openai.com/v1/responses/${encodeURIComponent(
+      await openAiFetch(
+        `/responses/${encodeURIComponent(
           responseId
         )}`,
         {
           method: "GET",
-          headers: {
-            Authorization:
-              `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          cache: "no-store",
+        },
+        {
+          clientRequestId,
+          timeoutMs:
+            OPENAI_STATUS_TIMEOUT_MS,
         }
       );
 
     const rawText =
       await openaiResponse.text();
 
-    let data: any;
+    let data: any = null;
 
     try {
       data =
         rawText
-          ? JSON.parse(
-              rawText
-            )
+          ? JSON.parse(rawText)
           : null;
     } catch {
+      logOpenAiHttpFailure(
+        "Enhancement status returned invalid JSON:",
+        openaiResponse,
+        clientRequestId
+      );
+
       return Response.json(
         {
           error:
-            `OpenAI returned an invalid status response. HTTP ${openaiResponse.status}.`,
+            "The AI provider returned an invalid enhancement-status response.",
         },
         {
           status: 502,
@@ -246,11 +237,16 @@ export async function GET(
     }
 
     if (!openaiResponse.ok) {
+      logOpenAiHttpFailure(
+        "Enhancement status OpenAI HTTP error:",
+        openaiResponse,
+        clientRequestId
+      );
+
       return Response.json(
         {
           error:
-            data?.error?.message ||
-            `Could not retrieve enhancement status. HTTP ${openaiResponse.status}.`,
+            "Could not retrieve enhancement status from the AI provider.",
         },
         {
           status:
@@ -280,9 +276,7 @@ export async function GET(
       return Response.json({
         status,
         error:
-          data?.error?.message ||
-          data?.incomplete_details?.reason ||
-          `Enhancement ended with status: ${status}`,
+          "The enhancement did not complete successfully.",
       });
     }
 
@@ -290,17 +284,15 @@ export async function GET(
       return Response.json({
         status,
         error:
-          `Unexpected enhancement status: ${status}`,
+          "The enhancement returned an unexpected provider status.",
       });
     }
 
     /*
-     * From this point forward the provider job has
-     * completed. Even if durable persistence fails,
-     * the outer route must finalize billable usage as
-     * succeeded. completedJson carries that signal.
+     * Provider completion and durable persistence are separate.
+     * completedJson signals the outer route to finalize billable
+     * usage as succeeded even if storage later fails.
      */
-
     const {
       data: project,
       error: projectError,
@@ -313,8 +305,7 @@ export async function GET(
 
     if (projectError) {
       console.error(
-        "Enhancement project lookup error:",
-        projectError
+        "Enhancement destination project lookup failed."
       );
 
       return completedJson(
@@ -363,8 +354,7 @@ export async function GET(
 
     if (sourceError) {
       console.error(
-        "Enhancement source version lookup error:",
-        sourceError
+        "Enhancement source version lookup failed."
       );
 
       return completedJson(
@@ -389,12 +379,6 @@ export async function GET(
         400
       );
     }
-
-    /*
-     * Idempotency by provider response ID means a
-     * browser retry after a network interruption never
-     * creates a second enhancement version.
-     */
 
     const {
       data: existing,
@@ -426,8 +410,7 @@ export async function GET(
 
     if (existingError) {
       console.error(
-        "Enhancement idempotency lookup error:",
-        existingError
+        "Enhancement idempotency lookup failed."
       );
 
       return completedJson(
@@ -468,9 +451,9 @@ export async function GET(
 
     if (!imageCall?.result) {
       console.error(
-        "Completed background response contained no image:",
+        "Completed enhancement contained no image result:",
         {
-          responseId,
+          clientRequestId,
           outputTypes:
             Array.isArray(
               data?.output
@@ -549,8 +532,7 @@ export async function GET(
 
     if (uploadError) {
       console.error(
-        "Completed enhancement storage upload error:",
-        uploadError
+        "Completed enhancement storage upload failed."
       );
 
       return completedJson(
@@ -697,8 +679,12 @@ export async function GET(
       }
 
       console.error(
-        "Completed enhancement version insert error:",
-        insertError
+        "Completed enhancement version insert failed:",
+        {
+          code:
+            insertError.code ??
+            null,
+        }
       );
 
       return completedJson(
@@ -715,8 +701,7 @@ export async function GET(
     console.log(
       "Enhancement background job stored:",
       {
-        responseId,
-        versionId,
+        clientRequestId,
         bytes:
           imageBuffer.length,
       }
@@ -734,20 +719,19 @@ export async function GET(
       201
     );
   } catch (error) {
-    console.error(
-      "Enhancement status error:",
-      error
+    logOpenAiSdkError(
+      "Enhancement status request error:",
+      error,
+      clientRequestId
     );
 
     return Response.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to retrieve enhancement status.",
+          "Failed to retrieve enhancement status.",
       },
       {
-        status: 500,
+        status: 502,
       }
     );
   }
