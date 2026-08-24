@@ -741,7 +741,13 @@ export default function StoredArtworkHistory({
           </div>
         )}
 
-        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div
+          className="mt-7 grid gap-4"
+          style={{
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+          }}
+        >
           {versions.map(
             (version, index) => {
               const active =
@@ -775,7 +781,7 @@ export default function StoredArtworkHistory({
                     }
                     className="block w-full text-left transition hover:bg-white/[0.02]"
                   >
-                    <div className="flex h-[320px] items-center justify-center overflow-hidden bg-black p-2 2xl:h-[360px]">
+                    <div className="flex aspect-[4/5] items-center justify-center overflow-hidden bg-black p-2">
                       <img
                         src={version.image}
                         alt={`Stored artwork version ${index + 1}`}
