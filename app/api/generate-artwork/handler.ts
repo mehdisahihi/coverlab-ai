@@ -1,17 +1,17 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 import {
+  createOpenAiClientRequestId,
+  getOpenAiClient,
+  logOpenAiSdkError,
+  openAiImageRequestOptions,
+} from "@/lib/openai/client";
+import {
   getArtworkGeometry,
 } from "../../../lib/artworkGeometry";
-
 import {
   enforceAiOperation,
 } from "../../../lib/publications/enforcement";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 type ReferenceImage = {
   name: string;
@@ -43,6 +43,9 @@ type GenerateArtworkRequest = {
 export async function POST(
   request: Request
 ) {
+  const clientRequestId =
+    createOpenAiClientRequestId();
+
   try {
     const body =
       (await request.json()) as GenerateArtworkRequest;
@@ -64,10 +67,6 @@ export async function POST(
 
       manualPolicyConfirmed = false,
     } = body;
-
-    /*
-     * Basic validation
-     */
 
     if (
       !imageGenerationInstruction ||
@@ -96,32 +95,13 @@ export async function POST(
       );
     }
 
-    /*
-     * AI policy enforcement
-     *
-     * IMPORTANT:
-     * This happens before any image-generation
-     * request is sent to OpenAI.
-     *
-     * manualPolicyConfirmed does NOT mean that
-     * CoverLab verified the publisher's policy.
-     *
-     * It means that the researcher explicitly
-     * acknowledged responsibility for checking
-     * the applicable publication requirements
-     * when the policy engine requires a manual
-     * verification step.
-     */
-
     const policyDecision =
       enforceAiOperation({
         publisher,
         journal,
         artworkType,
-
         aiUseType:
           "generative-creation",
-
         manualPolicyConfirmed,
       });
 
@@ -130,29 +110,22 @@ export async function POST(
         {
           error:
             policyDecision.message,
-
           code:
             policyDecision.status ===
             "not-allowed"
               ? "AI_POLICY_NOT_ALLOWED"
               : "AI_POLICY_MANUAL_CHECK_REQUIRED",
-
           policy: {
             status:
               policyDecision.status,
-
             aiUseType:
               policyDecision.aiUseType,
-
             message:
               policyDecision.message,
-
             disclosureRequired:
               policyDecision.disclosureRequired,
-
             disclosureInstructions:
               policyDecision.disclosureInstructions,
-
             conditions:
               policyDecision.conditions,
           },
@@ -167,34 +140,14 @@ export async function POST(
       );
     }
 
-    /*
-     * Resolve generation geometry.
-     *
-     * Keep "Front Cover" as the internal registry
-     * value even though the UI displays
-     * "Journal Cover".
-     */
-
     const geometry =
       getArtworkGeometry(
         artworkType
       );
 
-    /*
-     * CoverLab currently supports two
-     * user-facing artwork modes:
-     *
-     * 1. Journal Cover
-     * 2. Graphical Abstract
-     */
-
     const isGraphicalAbstract =
       artworkType ===
       "Graphical Abstract";
-
-    /*
-     * Product-specific generation instruction
-     */
 
     const artworkModeInstruction =
       isGraphicalAbstract
@@ -331,10 +284,6 @@ Do not generate the masthead itself.
 The final artwork should read as one unified,
 visually powerful scientific scene.
 `;
-
-    /*
-     * Main generation prompt
-     */
 
     const prompt = `
 Create one professional scientific publication artwork.
@@ -534,10 +483,6 @@ JOURNAL COVER FINAL COMPOSITION
 }
 `;
 
-    /*
-     * Build multimodal request.
-     */
-
     const content: Array<
       | {
           type: "input_text";
@@ -555,11 +500,6 @@ JOURNAL COVER FINAL COMPOSITION
       },
     ];
 
-    /*
-     * Limit researcher-supplied reference
-     * assets to three images.
-     */
-
     for (
       const image of
       referenceImages.slice(0, 3)
@@ -570,50 +510,46 @@ JOURNAL COVER FINAL COMPOSITION
 
       content.push({
         type: "input_image",
-
         image_url:
           image.dataUrl,
-
         detail:
           "auto",
       });
     }
 
-    /*
-     * Generate artwork.
-     */
+    const openai =
+      getOpenAiClient();
 
     const response =
-      await openai.responses.create({
-        model:
-          "gpt-5.6",
+      await openai.responses.create(
+        {
+          model:
+            "gpt-5.6",
+          store: false,
 
-        input: [
-          {
-            role:
-              "user",
+          input: [
+            {
+              role:
+                "user",
+              content,
+            },
+          ],
 
-            content,
-          },
-        ],
-
-        tools: [
-          {
-            type:
-              "image_generation",
-
-            quality:
-              "medium",
-
-            size:
-              geometry.generationSize,
-          },
-        ],
-      });
-
-    /*
-     * Extract generated image.
-     */
+          tools: [
+            {
+              type:
+                "image_generation",
+              quality:
+                "medium",
+              size:
+                geometry.generationSize,
+            },
+          ],
+        },
+        openAiImageRequestOptions(
+          clientRequestId
+        )
+      );
 
     const imageCall =
       response.output.find(
@@ -631,83 +567,59 @@ JOURNAL COVER FINAL COMPOSITION
       return NextResponse.json(
         {
           error:
-            response.output_text ||
             "No image was returned by the image-generation tool.",
         },
         {
-          status: 500,
+          status: 502,
         }
       );
     }
 
-    /*
-     * Return generated image and resolved
-     * publication geometry.
-     */
-
     return NextResponse.json({
       image:
         `data:image/png;base64,${imageCall.result}`,
-
       responseId:
         response.id,
-
       geometry: {
         key:
           geometry.key,
-
         label:
           geometry.label,
-
         generationSize:
           geometry.generationSize,
-
         orientation:
           geometry.orientation,
-
         targetAspectRatio:
           geometry.targetAspectRatio,
       },
-
-      /*
-       * Returning the policy state is useful
-       * for auditability and later UI work.
-       */
-
       policy: {
         status:
           policyDecision.status,
-
         aiUseType:
           policyDecision.aiUseType,
-
         disclosureRequired:
           policyDecision.disclosureRequired,
-
         disclosureInstructions:
           policyDecision.disclosureInstructions,
-
         conditions:
           policyDecision.conditions,
-
         manualPolicyConfirmed,
       },
     });
   } catch (error) {
-    console.error(
-      "Artwork generation error:",
-      error
+    logOpenAiSdkError(
+      "Artwork generation OpenAI error:",
+      error,
+      clientRequestId
     );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate artwork.",
+          "Failed to generate artwork.",
       },
       {
-        status: 500,
+        status: 502,
       }
     );
   }
