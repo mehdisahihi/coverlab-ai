@@ -95,6 +95,8 @@ Before public launch:
 
 ## 8. Pre-deploy checks
 
+- Recheck the current Next.js security advisories immediately before launch and deploy only a security-patched supported release.
+
 Run from the release branch with production-shaped configuration:
 
 ```bash
@@ -119,6 +121,7 @@ Verify on the production hostname:
 
 - HTTPS works and HTTP redirects to HTTPS at the hosting/CDN layer.
 - Security headers are present: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- `Strict-Transport-Security` is present when the production build has a valid HTTPS `NEXT_PUBLIC_SITE_URL`.
 - Signup/login/logout work with Turnstile enabled.
 - Email confirmation and password reset return to the production hostname.
 - Authenticated project create/resume/save/delete works.
