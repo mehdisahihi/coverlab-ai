@@ -6,6 +6,7 @@ import {
 import {
   signOut,
 } from "@/app/auth/actions";
+import ProjectCard from "@/components/projects/ProjectCard";
 import {
   getAuthenticatedContext,
 } from "@/lib/auth/authenticated";
@@ -103,49 +104,10 @@ export default async function ProjectsPage() {
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projects.map(
               (project) => (
-                <Link
+                <ProjectCard
                   key={project.id}
-                  href={`/create?project=${project.id}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-cyan-400/30 hover:bg-white/[0.045]"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-lg font-medium text-white">
-                        {project.name}
-                      </p>
-
-                      {project.research_title && (
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">
-                          {project.research_title}
-                        </p>
-                      )}
-                    </div>
-
-                    <span className="shrink-0 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-400">
-                      Step {project.current_step}
-                    </span>
-                  </div>
-
-                  <div className="mt-5 space-y-1 text-xs text-slate-500">
-                    {(project.journal ||
-                      project.publisher) && (
-                      <p>
-                        {[project.journal, project.publisher]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    )}
-
-                    {project.artwork_type && (
-                      <p>
-                        {project.artwork_type ===
-                        "Front Cover"
-                          ? "Journal Cover"
-                          : project.artwork_type}
-                      </p>
-                    )}
-                  </div>
-                </Link>
+                  project={project}
+                />
               )
             )}
           </div>
