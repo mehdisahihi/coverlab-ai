@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "validate:production-env": "node scripts/validate-production-env.mjs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.6.0",
