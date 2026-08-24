@@ -1,11 +1,13 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { z } from "zod/v3";
 import { zodTextFormat } from "openai/helpers/zod";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import {
+  createOpenAiClientRequestId,
+  getOpenAiClient,
+  logOpenAiSdkError,
+  openAiTextRequestOptions,
+} from "@/lib/openai/client";
 
 const Concept = z.object({
   title: z.string(),
@@ -22,6 +24,9 @@ const CoverConceptResponse = z.object({
 });
 
 export async function POST(request: Request) {
+  const clientRequestId =
+    createOpenAiClientRequestId();
+
   try {
     const body = await request.json();
 
@@ -45,11 +50,11 @@ export async function POST(request: Request) {
     }
 
     const isGraphicalAbstract =
-  artworkType === "Graphical Abstract";
+      artworkType === "Graphical Abstract";
 
-const conceptModeInstruction =
-  isGraphicalAbstract
-    ? `
+    const conceptModeInstruction =
+      isGraphicalAbstract
+        ? `
 GRAPHICAL ABSTRACT MODE
 
 The requested artwork is a GRAPHICAL ABSTRACT.
@@ -99,7 +104,7 @@ turning the graphical abstract into cinematic concept art.
 The three concepts must represent genuinely different ways
 of communicating the same supported scientific story.
 `
-    : `
+        : `
 JOURNAL COVER MODE
 
 The requested artwork is JOURNAL COVER artwork.
@@ -138,13 +143,19 @@ The three concepts must be visually distinct while remaining
 faithful to the same scientific research.
 `;
 
-    const response = await openai.responses.parse({
-      model: "gpt-5.6-luna",
+    const openai =
+      getOpenAiClient();
 
-      input: [
+    const response =
+      await openai.responses.parse(
         {
-          role: "system",
-          content: `
+          model: "gpt-5.6-luna",
+          store: false,
+
+          input: [
+            {
+              role: "system",
+              content: `
           You are the scientific art director for CoverLab AI.
 
           Your job is to transform scientific research into strong,
@@ -190,10 +201,10 @@ faithful to the same scientific research.
            scientific risk that the illustrator or image-generation system
            must avoid for that concept.
           `,
-        },
-        {
-          role: "user",
-          content: `
+            },
+            {
+              role: "user",
+              content: `
 RESEARCH
 
 Title:
@@ -243,35 +254,44 @@ research story into a meaningfully different editorial visual direction.
 Prioritize scientific accuracy, strong visual storytelling and
 premium cover-level composition.`}
           `,
-        },
-      ],
+            },
+          ],
 
-      text: {
-        format: zodTextFormat(
-          CoverConceptResponse,
-          "cover_concept_response"
-        ),
-      },
-    });
+          text: {
+            format: zodTextFormat(
+              CoverConceptResponse,
+              "cover_concept_response"
+            ),
+          },
+        },
+        openAiTextRequestOptions(
+          clientRequestId
+        )
+      );
 
     const result = response.output_parsed;
 
     if (!result) {
       return NextResponse.json(
         { error: "No structured output was returned." },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Concept generation error:", error);
+    logOpenAiSdkError(
+      "Concept generation OpenAI error:",
+      error,
+      clientRequestId
+    );
 
     return NextResponse.json(
       {
-        error: "Failed to generate concepts.",
+        error:
+          "Failed to generate concepts.",
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
