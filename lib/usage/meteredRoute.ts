@@ -1,4 +1,11 @@
 import {
+  aiRequestOriginGuard,
+  safeAiLedgerMetadata,
+  sanitizeMeteredAiResponse,
+  withPrivateNoStore,
+} from "@/lib/openai/runtime";
+
+import {
   reserveAiUsageForRequest,
 } from "./aiUsageGuard";
 import {
@@ -41,11 +48,38 @@ async function readJsonPayload(
   }
 }
 
+function attachRequestId(
+  response: Response,
+  requestId: string
+) {
+  response.headers.set(
+    "X-CoverLab-Request-Id",
+    requestId
+  );
+
+  return response;
+}
+
 export async function runMeteredAiPost(
   request: Request,
   handler: MeteredHandler,
   options: MeteredOptions = {}
 ) {
+  const requestId =
+    crypto.randomUUID();
+
+  const originResponse =
+    aiRequestOriginGuard(
+      request
+    );
+
+  if (originResponse) {
+    return attachRequestId(
+      originResponse,
+      requestId
+    );
+  }
+
   const reservation =
     await reserveAiUsageForRequest(
       request,
@@ -53,7 +87,12 @@ export async function runMeteredAiPost(
     );
 
   if (!reservation.ok) {
-    return reservation.response;
+    return attachRequestId(
+      withPrivateNoStore(
+        reservation.response
+      ),
+      requestId
+    );
   }
 
   const eventId =
@@ -88,10 +127,17 @@ export async function runMeteredAiPost(
         {
           httpStatus:
             response.status,
+          requestId,
         }
       );
 
-      return response;
+      return attachRequestId(
+        sanitizeMeteredAiResponse(
+          response,
+          payload
+        ),
+        requestId
+      );
     }
 
     await finishAiUsageEvent(
@@ -105,37 +151,67 @@ export async function runMeteredAiPost(
           payload?.usage ??
           null,
         metadata: {
-          httpStatus:
-            response.status,
-          responseCode:
-            typeof payload?.code ===
-              "string"
-              ? payload.code
-              : null,
-          error:
-            typeof payload?.error ===
-              "string"
-              ? payload.error
-              : null,
+          ...safeAiLedgerMetadata({
+            response,
+            payload,
+          }),
+          requestId,
         },
       }
     );
 
-    return response;
+    return attachRequestId(
+      sanitizeMeteredAiResponse(
+        response,
+        payload
+      ),
+      requestId
+    );
   } catch (error) {
+    const errorName =
+      error instanceof Error
+        ? error.name
+        : "UnknownError";
+
     await finishAiUsageEvent(
       eventId,
       "failed",
       {
         metadata: {
-          thrownError:
-            error instanceof Error
-              ? error.message
-              : "Unknown route error",
+          requestId,
+          thrownErrorName:
+            errorName,
         },
       }
     );
 
-    throw error;
+    console.error(
+      "Metered AI route failed:",
+      {
+        requestId,
+        errorName,
+      }
+    );
+
+    return attachRequestId(
+      Response.json(
+        {
+          error:
+            "The AI request could not be completed. Please try again.",
+          code:
+            "AI_REQUEST_FAILED",
+        },
+        {
+          status: 502,
+          headers: {
+            "Cache-Control":
+              "private, no-store, max-age=0",
+            Pragma:
+              "no-cache",
+          },
+        }
+      ),
+      requestId
+    );
   }
 }
