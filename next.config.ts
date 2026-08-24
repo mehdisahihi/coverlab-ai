@@ -13,6 +13,39 @@ const allowedServerActionOrigins = codespacesOrigin
     ]
   : [];
 
+function shouldSendHsts() {
+  if (
+    process.env.NODE_ENV !==
+    "production"
+  ) {
+    return false;
+  }
+
+  const raw =
+    process.env.NEXT_PUBLIC_SITE_URL
+      ?.trim();
+
+  if (!raw) {
+    return false;
+  }
+
+  try {
+    const url =
+      new URL(raw);
+
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      url.pathname === "/" &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
 const securityHeaders = [
   {
     key:
@@ -38,6 +71,16 @@ const securityHeaders = [
     value:
       "camera=(), microphone=(), geolocation=()",
   },
+  ...(shouldSendHsts()
+    ? [
+        {
+          key:
+            "Strict-Transport-Security",
+          value:
+            "max-age=31536000",
+        },
+      ]
+    : []),
 ];
 
 const nextConfig: NextConfig = {
