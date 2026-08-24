@@ -11,6 +11,9 @@ import {
 import {
   expectedArtworkVersionPath,
 } from "@/lib/storage/artworkVersions";
+import {
+  cleanupStaleProjectStorageOrphans,
+} from "@/lib/storage/orphanCleanup";
 
 const idSchema =
   z.string().uuid();
@@ -191,6 +194,19 @@ export async function POST(
         }
       );
     }
+  }
+
+  try {
+    await cleanupStaleProjectStorageOrphans({
+      supabase,
+      userId,
+      projectId: id,
+    });
+  } catch (cleanupError) {
+    console.warn(
+      "Pre-version-upload stale storage cleanup did not complete:",
+      cleanupError
+    );
   }
 
   const versionId =
