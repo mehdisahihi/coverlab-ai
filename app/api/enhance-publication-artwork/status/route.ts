@@ -1,4 +1,6 @@
 import {
+  aiServiceUnavailableResponse,
+  isOpenAiConfigured,
   sanitizeMeteredAiResponse,
   withPrivateNoStore,
 } from "@/lib/openai/runtime";
@@ -37,6 +39,10 @@ async function readJsonPayload(
 export async function GET(
   request: Request
 ) {
+  if (!isOpenAiConfigured()) {
+    return aiServiceUnavailableResponse();
+  }
+
   const responseId =
     new URL(
       request.url
