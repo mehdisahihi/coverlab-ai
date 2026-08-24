@@ -9,6 +9,9 @@ import {
   getAuthenticatedContext,
 } from "@/lib/auth/authenticated";
 import {
+  cleanupStaleProjectStorageOrphans,
+} from "@/lib/storage/orphanCleanup";
+import {
   fileExtension,
   isAllowedProjectAssetExtension,
   PROJECT_ASSET_MAX_BYTES,
@@ -165,6 +168,19 @@ export async function POST(
       {
         status: 404,
       }
+    );
+  }
+
+  try {
+    await cleanupStaleProjectStorageOrphans({
+      supabase,
+      userId,
+      projectId: id,
+    });
+  } catch (cleanupError) {
+    console.warn(
+      "Pre-upload stale storage cleanup did not complete:",
+      cleanupError
     );
   }
 
