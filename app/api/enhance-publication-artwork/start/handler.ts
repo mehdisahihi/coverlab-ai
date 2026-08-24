@@ -1,4 +1,11 @@
 import {
+  createOpenAiClientRequestId,
+  logOpenAiHttpFailure,
+  logOpenAiSdkError,
+  OPENAI_BACKGROUND_START_TIMEOUT_MS,
+  openAiFetch,
+} from "@/lib/openai/client";
+import {
   enforceAiOperation,
 } from "../../../../lib/publications/enforcement";
 
@@ -14,61 +21,37 @@ function roundUpToMultipleOf16(
 
 type EnhancementRequest = {
   croppedImage: string;
-
   targetWidth: number;
   targetHeight: number;
-
   scientificConstraints?: string[];
   avoid?: string[];
-
   artworkType?: string;
   publisher?: string;
   journal?: string;
-
   manualPolicyConfirmed?: boolean;
 };
 
 export async function POST(
   request: Request
 ) {
+  const clientRequestId =
+    createOpenAiClientRequestId();
+
   try {
     const body =
       (await request.json()) as EnhancementRequest;
 
     const {
       croppedImage,
-
       targetWidth,
       targetHeight,
-
       scientificConstraints = [],
       avoid = [],
-
       artworkType = "",
       publisher = "",
       journal = "",
-
       manualPolicyConfirmed = false,
     } = body;
-
-    /*
-     * Basic validation must happen before
-     * starting an expensive background job.
-     */
-
-    if (
-      !process.env.OPENAI_API_KEY
-    ) {
-      return Response.json(
-        {
-          error:
-            "OPENAI_API_KEY is not configured.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
 
     if (!croppedImage) {
       return Response.json(
@@ -115,23 +98,13 @@ export async function POST(
       );
     }
 
-    /*
-     * AI policy enforcement
-     *
-     * Detail enhancement is independently
-     * policy-gated because it is another
-     * AI image operation.
-     */
-
     const policyDecision =
       enforceAiOperation({
         publisher,
         journal,
         artworkType,
-
         aiUseType:
           "detail-enhancement",
-
         manualPolicyConfirmed,
       });
 
@@ -140,29 +113,22 @@ export async function POST(
         {
           error:
             policyDecision.message,
-
           code:
             policyDecision.status ===
             "not-allowed"
               ? "AI_POLICY_NOT_ALLOWED"
               : "AI_POLICY_MANUAL_CHECK_REQUIRED",
-
           policy: {
             status:
               policyDecision.status,
-
             aiUseType:
               policyDecision.aiUseType,
-
             message:
               policyDecision.message,
-
             disclosureRequired:
               policyDecision.disclosureRequired,
-
             disclosureInstructions:
               policyDecision.disclosureInstructions,
-
             conditions:
               policyDecision.conditions,
           },
@@ -177,19 +143,10 @@ export async function POST(
       );
     }
 
-    /*
-     * Image-generation dimensions must be
-     * compatible with the image tool.
-     *
-     * We enhance on the nearest larger
-     * multiple-of-16 canvas.
-     */
-
     const enhancementWidth =
       roundUpToMultipleOf16(
         targetWidth
       );
-
     const enhancementHeight =
       roundUpToMultipleOf16(
         targetHeight
@@ -198,10 +155,6 @@ export async function POST(
     const isGraphicalAbstract =
       artworkType ===
       "Graphical Abstract";
-
-    /*
-     * Product-specific preservation rules.
-     */
 
     const publicationModeInstruction =
       isGraphicalAbstract
@@ -387,7 +340,6 @@ Do not add fake microscopic or molecular detail
 that could be interpreted as experimental evidence.
 
 Avoid aggressive sharpening.
-
 Avoid sharpening halos.
 
 Do not introduce new scientifically meaningful
@@ -400,94 +352,84 @@ designed image.
 Return one image only.
 `;
 
-    /*
-     * Start OpenAI background enhancement.
-     */
-
+    /* Background mode must remain stored so it can be polled. */
     const openaiResponse =
-      await fetch(
-        "https://api.openai.com/v1/responses",
+      await openAiFetch(
+        "/responses",
         {
-          method:
-            "POST",
-
+          method: "POST",
           headers: {
-            Authorization:
-              `Bearer ${process.env.OPENAI_API_KEY}`,
-
             "Content-Type":
               "application/json",
           },
-
           body:
             JSON.stringify({
               model:
                 "gpt-5.6",
-
               background:
                 true,
-
               input: [
                 {
                   role:
                     "user",
-
                   content: [
                     {
                       type:
                         "input_text",
-
                       text:
                         prompt,
                     },
-
                     {
                       type:
                         "input_image",
-
                       image_url:
                         croppedImage,
-
                       detail:
                         "auto",
                     },
                   ],
                 },
               ],
-
               tools: [
                 {
                   type:
                     "image_generation",
-
                   quality:
                     "high",
-
                   size:
                     `${enhancementWidth}x${enhancementHeight}`,
                 },
               ],
             }),
+        },
+        {
+          clientRequestId,
+          timeoutMs:
+            OPENAI_BACKGROUND_START_TIMEOUT_MS,
         }
       );
 
     const rawText =
       await openaiResponse.text();
 
-    let data: any;
+    let data: any = null;
 
     try {
       data =
         rawText
-          ? JSON.parse(
-              rawText
-            )
+          ? JSON.parse(rawText)
           : null;
     } catch {
+      logOpenAiHttpFailure(
+        "Enhancement start returned invalid JSON:",
+        openaiResponse,
+        clientRequestId
+      );
+
       return Response.json(
         {
           error:
-            `OpenAI returned an invalid response while starting enhancement. HTTP ${openaiResponse.status}.`,
+            "The AI provider returned an invalid enhancement-start response.",
         },
         {
           status: 502,
@@ -496,11 +438,16 @@ Return one image only.
     }
 
     if (!openaiResponse.ok) {
+      logOpenAiHttpFailure(
+        "Enhancement start OpenAI HTTP error:",
+        openaiResponse,
+        clientRequestId
+      );
+
       return Response.json(
         {
           error:
-            data?.error?.message ||
-            `OpenAI failed to start the enhancement job. HTTP ${openaiResponse.status}.`,
+            "The AI provider could not start the enhancement job.",
         },
         {
           status:
@@ -513,7 +460,7 @@ Return one image only.
       return Response.json(
         {
           error:
-            "OpenAI did not return a background response ID.",
+            "The AI provider did not return an enhancement job identifier.",
         },
         {
           status: 502,
@@ -524,77 +471,57 @@ Return one image only.
     console.log(
       "Enhancement background job started:",
       {
-        responseId:
-          data.id,
-
+        clientRequestId,
         status:
           data.status,
-
         exactTarget:
           `${targetWidth}x${targetHeight}`,
-
         enhancementCanvas:
           `${enhancementWidth}x${enhancementHeight}`,
-
         artworkType,
-
         policyStatus:
           policyDecision.status,
-
-        manualPolicyConfirmed,
       }
     );
 
     return Response.json({
       responseId:
         data.id,
-
       status:
         data.status,
-
       targetWidth,
-
       targetHeight,
-
       enhancementWidth,
-
       enhancementHeight,
-
       policy: {
         status:
           policyDecision.status,
-
         aiUseType:
           policyDecision.aiUseType,
-
         disclosureRequired:
           policyDecision.disclosureRequired,
-
         disclosureInstructions:
           policyDecision.disclosureInstructions,
-
         conditions:
           policyDecision.conditions,
-
         manualPolicyConfirmed,
       },
     });
   } catch (error) {
-    console.error(
-      "Start enhancement error:",
-      error
+    logOpenAiSdkError(
+      "Start enhancement request error:",
+      error,
+      clientRequestId
     );
 
     return Response.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to start publication enhancement.",
+          "Failed to start publication enhancement.",
       },
       {
-        status: 500,
+        status: 502,
       }
     );
   }
-} 
+}
