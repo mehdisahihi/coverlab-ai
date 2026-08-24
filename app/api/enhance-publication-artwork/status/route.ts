@@ -1,4 +1,8 @@
 import {
+  sanitizeMeteredAiResponse,
+  withPrivateNoStore,
+} from "@/lib/openai/runtime";
+import {
   finishAiUsageByProviderResponse,
 } from "@/lib/usage/aiUsageLedger";
 import {
@@ -46,7 +50,12 @@ export async function GET(
     );
 
   if (!responseId) {
-    return response;
+    return sanitizeMeteredAiResponse(
+      response,
+      await readJsonPayload(
+        response
+      )
+    );
   }
 
   /*
@@ -72,7 +81,9 @@ export async function GET(
       }
     );
 
-    return response;
+    return withPrivateNoStore(
+      response
+    );
   }
 
   const payload:
@@ -95,15 +106,33 @@ export async function GET(
             response.status,
           terminalStatus:
             payload.status,
-          error:
-            typeof payload?.error ===
-              "string"
-              ? payload.error
-              : null,
+        },
+      }
+    );
+
+    return Response.json(
+      {
+        status:
+          payload.status,
+        error:
+          "The enhancement did not complete successfully. Please try again.",
+        code:
+          "AI_PROVIDER_TERMINAL_FAILURE",
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control":
+            "private, no-store, max-age=0",
+          Pragma:
+            "no-cache",
         },
       }
     );
   }
 
-  return response;
+  return sanitizeMeteredAiResponse(
+    response,
+    payload
+  );
 }
