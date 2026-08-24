@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 
 import {
+  createOpenAiClientRequestId,
+  logOpenAiHttpFailure,
+  logOpenAiSdkError,
+  OPENAI_IMAGE_TIMEOUT_MS,
+  openAiFetch,
+} from "@/lib/openai/client";
+import {
   enforceAiOperation,
 } from "../../../lib/publications/enforcement";
 
@@ -11,67 +18,50 @@ type ReferenceImage = {
 
 type RefineArtworkRequest = {
   currentImage: string;
-
   publisher?: string;
   journal?: string;
   artworkType?: string;
-
   manualPolicyConfirmed?: boolean;
-
   referenceImages?: ReferenceImage[];
-
   scientificConstraints?: string[];
   avoid?: string[];
-
   preserveScientificContent?: boolean;
   removeUnverifiedElements?: boolean;
-
   direction?:
     | "balanced"
     | "more-scientific"
     | "more-artistic";
-
   changeComposition?: boolean;
   changeLighting?: boolean;
-
   customInstruction?: string;
 };
 
 export async function POST(
   request: Request
 ) {
+  const clientRequestId =
+    createOpenAiClientRequestId();
+
   try {
     const body =
       (await request.json()) as RefineArtworkRequest;
 
     const {
       currentImage,
-
       publisher = "",
       journal = "",
       artworkType = "",
-
       manualPolicyConfirmed = false,
-
       referenceImages = [],
-
       scientificConstraints = [],
       avoid = [],
-
       preserveScientificContent = true,
       removeUnverifiedElements = true,
-
       direction = "balanced",
-
       changeComposition = false,
       changeLighting = false,
-
       customInstruction = "",
     } = body;
-
-    /*
-     * Basic validation
-     */
 
     if (!currentImage) {
       return NextResponse.json(
@@ -97,22 +87,13 @@ export async function POST(
       );
     }
 
-    /*
-     * AI policy enforcement
-     *
-     * Refinement is a separate AI operation,
-     * so policy enforcement must happen again.
-     */
-
     const policyDecision =
       enforceAiOperation({
         publisher,
         journal,
         artworkType,
-
         aiUseType:
           "generative-refinement",
-
         manualPolicyConfirmed,
       });
 
@@ -121,29 +102,22 @@ export async function POST(
         {
           error:
             policyDecision.message,
-
           code:
             policyDecision.status ===
             "not-allowed"
               ? "AI_POLICY_NOT_ALLOWED"
               : "AI_POLICY_MANUAL_CHECK_REQUIRED",
-
           policy: {
             status:
               policyDecision.status,
-
             aiUseType:
               policyDecision.aiUseType,
-
             message:
               policyDecision.message,
-
             disclosureRequired:
               policyDecision.disclosureRequired,
-
             disclosureInstructions:
               policyDecision.disclosureInstructions,
-
             conditions:
               policyDecision.conditions,
           },
@@ -157,10 +131,6 @@ export async function POST(
         }
       );
     }
-
-    /*
-     * Refinement direction
-     */
 
     const directionInstruction =
       direction === "more-scientific"
@@ -183,10 +153,6 @@ any scientific constraints.
 Maintain the current balance between scientific
 realism and professional publication presentation.
 `;
-
-    /*
-     * Product-specific refinement mode
-     */
 
     const isGraphicalAbstract =
       artworkType ===
@@ -246,10 +212,6 @@ Do not convert it into:
 Do not generate journal branding, mastheads,
 article titles or other typography.
 `;
-
-    /*
-     * Refinement prompt
-     */
 
     const prompt = `
 Edit the FIRST supplied image, which is the current
@@ -439,19 +401,11 @@ artwork unless the researcher explicitly requested a
 composition change.
 `;
 
-    /*
-     * Build image request.
-     *
-     * First image = artwork being edited.
-     * Remaining images = scientific references.
-     */
-
     const images = [
       {
         image_url:
           currentImage,
       },
-
       ...referenceImages
         .slice(0, 3)
         .filter(
@@ -468,69 +422,65 @@ composition change.
         ),
     ];
 
-    /*
-     * Send edit request.
-     */
-
     const apiResponse =
-      await fetch(
-        "https://api.openai.com/v1/images/edits",
+      await openAiFetch(
+        "/images/edits",
         {
-          method:
-            "POST",
-
+          method: "POST",
           headers: {
-            Authorization:
-              `Bearer ${process.env.OPENAI_API_KEY}`,
-
             "Content-Type":
               "application/json",
           },
-
           body:
             JSON.stringify({
               model:
                 "gpt-image-2",
-
               images,
-
               prompt,
-
               size:
                 isGraphicalAbstract
                   ? "1536x1024"
                   : "1024x1536",
-
               quality:
                 "medium",
-
               output_format:
                 "png",
-
-              n:
-                1,
+              n: 1,
             }),
+        },
+        {
+          clientRequestId,
+          timeoutMs:
+            OPENAI_IMAGE_TIMEOUT_MS,
         }
       );
 
-    const data =
-      await apiResponse.json();
+    let data: any = null;
+
+    try {
+      data =
+        await apiResponse.json();
+    } catch {
+      data = null;
+    }
 
     if (!apiResponse.ok) {
-      console.error(
-        "OpenAI image edit error:",
-        data
+      logOpenAiHttpFailure(
+        "Artwork refinement OpenAI HTTP error:",
+        apiResponse,
+        clientRequestId
       );
 
       return NextResponse.json(
         {
           error:
-            data?.error?.message ||
             "Failed to refine artwork.",
         },
         {
           status:
-            apiResponse.status,
+            apiResponse.status >= 500
+              ? 502
+              : apiResponse.status,
         }
       );
     }
@@ -545,7 +495,7 @@ composition change.
             "No refined image was returned.",
         },
         {
-          status: 500,
+          status: 502,
         }
       );
     }
@@ -553,41 +503,34 @@ composition change.
     return NextResponse.json({
       image:
         `data:image/png;base64,${base64}`,
-
       policy: {
         status:
           policyDecision.status,
-
         aiUseType:
           policyDecision.aiUseType,
-
         disclosureRequired:
           policyDecision.disclosureRequired,
-
         disclosureInstructions:
           policyDecision.disclosureInstructions,
-
         conditions:
           policyDecision.conditions,
-
         manualPolicyConfirmed,
       },
     });
   } catch (error) {
-    console.error(
-      "Artwork refinement error:",
-      error
+    logOpenAiSdkError(
+      "Artwork refinement request error:",
+      error,
+      clientRequestId
     );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to refine artwork.",
+          "Failed to refine artwork.",
       },
       {
-        status: 500,
+        status: 502,
       }
     );
   }
