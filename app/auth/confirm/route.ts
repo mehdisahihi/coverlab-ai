@@ -7,6 +7,9 @@ import {
 } from "next/server";
 
 import {
+  resolveTrustedAppOrigin,
+} from "@/lib/deployment/siteUrl";
+import {
   createClient,
 } from "@/lib/supabase/server";
 
@@ -22,33 +25,6 @@ function safeNext(
   }
 
   return value;
-}
-
-function appOrigin(
-  request: NextRequest
-) {
-  const configuredSiteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-  if (configuredSiteUrl) {
-    return new URL(
-      configuredSiteUrl
-    ).origin;
-  }
-
-  const codespaceName =
-    process.env.CODESPACE_NAME;
-  const forwardingDomain =
-    process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
-
-  if (
-    codespaceName &&
-    forwardingDomain
-  ) {
-    return `https://${codespaceName}-3000.${forwardingDomain}`;
-  }
-
-  return request.nextUrl.origin;
 }
 
 export async function GET(
@@ -71,7 +47,22 @@ export async function GET(
   );
 
   const origin =
-    appOrigin(request);
+    resolveTrustedAppOrigin(
+      request
+    );
+
+  if (!origin) {
+    return new NextResponse(
+      "Application URL configuration is unavailable.",
+      {
+        status: 503,
+        headers: {
+          "Cache-Control":
+            "private, no-store, max-age=0",
+        },
+      }
+    );
+  }
 
   if (tokenHash && type) {
     const supabase =
