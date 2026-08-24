@@ -12,6 +12,9 @@ import {
   projectMutationSchema,
   toProjectRow,
 } from "@/lib/projects/input";
+import {
+  deleteProjectStorage,
+} from "@/lib/storage/projectCleanup";
 
 const idSchema =
   z.string().uuid();
@@ -371,6 +374,88 @@ export async function DELETE(
     );
   }
 
+  /*
+   * Storage RLS verifies project ownership by
+   * checking the projects table. Confirm the row
+   * before deleting any private objects, then keep
+   * the project row in place until both buckets are
+   * clean. Deleting the project first could make
+   * its Storage objects impossible to remove with
+   * the authenticated user session.
+   */
+  const {
+    data: project,
+    error: projectError,
+  } =
+    await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+  if (projectError) {
+    console.error(
+      "Project delete ownership lookup error:",
+      projectError
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Could not prepare project deletion.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
+  if (!project) {
+    return NextResponse.json(
+      {
+        error:
+          "Project not found.",
+      },
+      {
+        status: 404,
+      }
+    );
+  }
+
+  let cleanup:
+    | Awaited<
+        ReturnType<
+          typeof deleteProjectStorage
+        >
+      >
+    | null = null;
+
+  try {
+    cleanup =
+      await deleteProjectStorage(
+        supabase,
+        userId,
+        id
+      );
+  } catch (cleanupError) {
+    console.error(
+      "Project private storage cleanup error:",
+      cleanupError
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Could not fully remove the project's private files. The project was kept so deletion can be retried safely.",
+        code:
+          "PROJECT_STORAGE_CLEANUP_FAILED",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
   const {
     error,
     count,
@@ -386,18 +471,24 @@ export async function DELETE(
       .eq(
         "id",
         id
+      )
+      .eq(
+        "user_id",
+        userId
       );
 
   if (error) {
     console.error(
-      "Project delete error:",
+      "Project delete error after storage cleanup:",
       error
     );
 
     return NextResponse.json(
       {
         error:
-          "Could not delete project.",
+          "Private files were removed, but the project record could not be deleted. Please retry project deletion.",
+        code:
+          "PROJECT_DATABASE_DELETE_FAILED",
       },
       {
         status: 500,
@@ -406,16 +497,29 @@ export async function DELETE(
   }
 
   if (!count) {
-    return NextResponse.json(
+    /*
+     * The project existed during the ownership
+     * check. A zero count here can only happen if
+     * another request removed it concurrently.
+     * Treat the final state as successfully deleted.
+     */
+    return new NextResponse(
+      null,
       {
-        error:
-          "Project not found.",
-      },
-      {
-        status: 404,
+        status: 204,
       }
     );
   }
+
+  console.log(
+    "Project deletion completed:",
+    {
+      projectAssetsDeleted:
+        cleanup.projectAssetsDeleted,
+      artworkVersionsDeleted:
+        cleanup.artworkVersionsDeleted,
+    }
+  );
 
   return new NextResponse(
     null,
