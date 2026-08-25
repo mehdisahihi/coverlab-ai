@@ -10,6 +10,10 @@ import {
   ELSEVIER_JOURNALS,
 } from "./catalog/elsevier";
 
+import {
+  RSC_JOURNALS,
+} from "./catalog/rsc";
+
 /*
  * CoverLab AI
  * Publication Registry V2
@@ -211,67 +215,13 @@ export const JOURNALS: JournalRecord[] = [
 
   /*
    * RSC
+   *
+   * RSC identity records now live in:
+   *
+   *   catalog/rsc.ts
    */
 
-  {
-    id: "rsc-materials-horizons",
-
-    name:
-      "Materials Horizons",
-
-    aliases: [],
-
-    publisherId:
-      "rsc",
-
-    disciplines: [
-      "Materials Science",
-      "Chemistry",
-      "Nanotechnology",
-    ],
-
-    active: true,
-  },
-
-  {
-    id: "rsc-journal-materials-chemistry-a",
-
-    name:
-      "Journal of Materials Chemistry A",
-
-    aliases: [
-      "J Mater Chem A",
-    ],
-
-    publisherId:
-      "rsc",
-
-    disciplines: [
-      "Materials Science",
-      "Energy",
-      "Chemistry",
-    ],
-
-    active: true,
-  },
-
-  {
-    id: "rsc-chemical-science",
-
-    name:
-      "Chemical Science",
-
-    aliases: [],
-
-    publisherId:
-      "rsc",
-
-    disciplines: [
-      "Chemistry",
-    ],
-
-    active: true,
-  },
+  ...RSC_JOURNALS,
 
   /*
    * AAAS / Science
