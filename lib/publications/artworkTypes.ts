@@ -179,7 +179,7 @@ export function normalizePublicationText(
     .toLowerCase()
     .replaceAll("&", "and")
     .replace(
-      /[_-]+/g,
+      /[_\-‐-‒–—―−]+/g,
       " "
     )
     .replace(
