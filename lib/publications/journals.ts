@@ -1,18 +1,11 @@
-import type {
-  JournalRecord,
-} from "./types";
+import type { JournalRecord } from "./types";
 
-import {
-  ACS_JOURNALS,
-} from "./catalog/acs";
-
-import {
-  ELSEVIER_JOURNALS,
-} from "./catalog/elsevier";
-
-import {
-  RSC_JOURNALS,
-} from "./catalog/rsc";
+import { ACS_JOURNALS } from "./catalog/acs";
+import { ELSEVIER_JOURNALS } from "./catalog/elsevier";
+import { ELSEVIER_GENERATED_JOURNALS } from "./catalog/elsevier.generated";
+import { RSC_JOURNALS } from "./catalog/rsc";
+import { WILEY_JOURNALS } from "./catalog/wiley";
+import { WILEY_GENERATED_JOURNALS } from "./catalog/wiley.generated";
 
 /*
  * CoverLab AI
@@ -22,589 +15,221 @@ import {
  *
  * IMPORTANT:
  *
- * Journal identity is separate from:
+ * Journal identity is separate from technical publication requirements,
+ * dimensions, DPI, formats, AI policy, and publication eligibility.
+ * A journal appearing here does NOT mean CoverLab has verified those rules.
  *
- * - technical publication requirements,
- * - dimensions,
- * - DPI,
- * - file formats,
- * - AI policy,
- * - publication eligibility.
- *
- * A journal appearing in this catalog does
- * NOT mean CoverLab has verified technical
- * requirements or AI policy for it.
- *
- * Large publisher catalogs live in:
- *
- *   lib/publications/catalog/
+ * Large publisher catalogs live in lib/publications/catalog/. Manually
+ * enriched seed records are kept separate from generated identity snapshots.
  */
 
 export const JOURNALS: JournalRecord[] = [
-  /*
-   * ACS
-   *
-   * ACS identity records now live in:
-   *
-   *   catalog/acs.ts
-   */
-
+  /* ACS */
   ...ACS_JOURNALS,
 
-  /*
-   * Elsevier
-   *
-   * Elsevier identity records now live in:
-   *
-   *   catalog/elsevier.ts
-   */
-
+  /* Elsevier: enriched seed records + generated official identity snapshot. */
   ...ELSEVIER_JOURNALS,
+  ...ELSEVIER_GENERATED_JOURNALS,
 
-  /*
-   * Wiley
-   */
+  /* Wiley: enriched seed records + generated official identity snapshot. */
+  ...WILEY_JOURNALS,
+  ...WILEY_GENERATED_JOURNALS,
 
-  {
-    id: "wiley-advanced-materials",
-
-    name:
-      "Advanced Materials",
-
-    aliases: [],
-
-    publisherId:
-      "wiley",
-
-    disciplines: [
-      "Materials Science",
-      "Nanotechnology",
-      "Chemistry",
-      "Physics",
-    ],
-
-    active: true,
-  },
-
-  {
-    id: "wiley-advanced-functional-materials",
-
-    name:
-      "Advanced Functional Materials",
-
-    aliases: [
-      "AFM",
-    ],
-
-    publisherId:
-      "wiley",
-
-    disciplines: [
-      "Materials Science",
-      "Nanotechnology",
-      "Applied Physics",
-    ],
-
-    active: true,
-  },
-
-  {
-    id: "wiley-small",
-
-    name:
-      "Small",
-
-    aliases: [],
-
-    publisherId:
-      "wiley",
-
-    disciplines: [
-      "Nanotechnology",
-      "Materials Science",
-      "Chemistry",
-    ],
-
-    active: true,
-  },
-
-  /*
-   * Nature Portfolio
-   */
-
+  /* Nature Portfolio */
   {
     id: "nature-nature",
-
-    name:
-      "Nature",
-
+    name: "Nature",
     aliases: [],
-
-    publisherId:
-      "nature-portfolio",
-
-    disciplines: [
-      "Multidisciplinary",
-    ],
-
+    publisherId: "nature-portfolio",
+    disciplines: ["Multidisciplinary"],
     active: true,
   },
-
   {
     id: "nature-nature-communications",
-
-    name:
-      "Nature Communications",
-
-    aliases: [
-      "Nat Commun",
-    ],
-
-    publisherId:
-      "nature-portfolio",
-
-    disciplines: [
-      "Multidisciplinary",
-    ],
-
+    name: "Nature Communications",
+    aliases: ["Nat Commun"],
+    publisherId: "nature-portfolio",
+    disciplines: ["Multidisciplinary"],
     active: true,
   },
-
   {
     id: "nature-nature-materials",
-
-    name:
-      "Nature Materials",
-
-    aliases: [
-      "Nat Mater",
-    ],
-
-    publisherId:
-      "nature-portfolio",
-
+    name: "Nature Materials",
+    aliases: ["Nat Mater"],
+    publisherId: "nature-portfolio",
     disciplines: [
       "Materials Science",
       "Nanotechnology",
       "Physics",
       "Chemistry",
     ],
-
     active: true,
   },
-
   {
     id: "nature-scientific-reports",
-
-    name:
-      "Scientific Reports",
-
-    aliases: [
-      "Sci Rep",
-    ],
-
-    publisherId:
-      "nature-portfolio",
-
-    disciplines: [
-      "Multidisciplinary",
-    ],
-
+    name: "Scientific Reports",
+    aliases: ["Sci Rep"],
+    publisherId: "nature-portfolio",
+    disciplines: ["Multidisciplinary"],
     active: true,
   },
 
-  /*
-   * RSC
-   *
-   * RSC identity records now live in:
-   *
-   *   catalog/rsc.ts
-   */
-
+  /* RSC */
   ...RSC_JOURNALS,
 
-  /*
-   * AAAS / Science
-   */
-
+  /* AAAS / Science */
   {
     id: "aaas-science",
-
-    name:
-      "Science",
-
+    name: "Science",
     aliases: [],
-
-    publisherId:
-      "aaas",
-
-    disciplines: [
-      "Multidisciplinary",
-    ],
-
+    publisherId: "aaas",
+    disciplines: ["Multidisciplinary"],
     active: true,
   },
-
   {
     id: "aaas-science-advances",
-
-    name:
-      "Science Advances",
-
+    name: "Science Advances",
     aliases: [],
-
-    publisherId:
-      "aaas",
-
-    disciplines: [
-      "Multidisciplinary",
-    ],
-
+    publisherId: "aaas",
+    disciplines: ["Multidisciplinary"],
     active: true,
   },
 
-  /*
-   * PLOS
-   */
-
+  /* PLOS */
   {
     id: "plos-one",
-
-    name:
-      "PLOS ONE",
-
-    aliases: [
-      "PLoS ONE",
-    ],
-
-    publisherId:
-      "plos",
-
-    disciplines: [
-      "Multidisciplinary",
-    ],
-
+    name: "PLOS ONE",
+    aliases: ["PLoS ONE"],
+    publisherId: "plos",
+    disciplines: ["Multidisciplinary"],
     active: true,
   },
-
   {
     id: "plos-biology",
-
-    name:
-      "PLOS Biology",
-
-    aliases: [
-      "PLoS Biology",
-    ],
-
-    publisherId:
-      "plos",
-
-    disciplines: [
-      "Biology",
-      "Life Sciences",
-    ],
-
+    name: "PLOS Biology",
+    aliases: ["PLoS Biology"],
+    publisherId: "plos",
+    disciplines: ["Biology", "Life Sciences"],
     active: true,
   },
-
   {
     id: "plos-computational-biology",
-
-    name:
-      "PLOS Computational Biology",
-
-    aliases: [
-      "PLoS Computational Biology",
-    ],
-
-    publisherId:
-      "plos",
-
-    disciplines: [
-      "Computational Biology",
-      "Bioinformatics",
-      "Life Sciences",
-    ],
-
+    name: "PLOS Computational Biology",
+    aliases: ["PLoS Computational Biology"],
+    publisherId: "plos",
+    disciplines: ["Computational Biology", "Bioinformatics", "Life Sciences"],
     active: true,
   },
 
-  /*
-   * IEEE
-   */
-
+  /* IEEE */
   {
     id: "ieee-transactions-medical-imaging",
-
-    name:
-      "IEEE Transactions on Medical Imaging",
-
-    aliases: [
-      "TMI",
-    ],
-
-    publisherId:
-      "ieee",
-
-    disciplines: [
-      "Medical Imaging",
-      "Biomedical Engineering",
-      "Computer Science",
-    ],
-
+    name: "IEEE Transactions on Medical Imaging",
+    aliases: ["TMI"],
+    publisherId: "ieee",
+    disciplines: ["Medical Imaging", "Biomedical Engineering", "Computer Science"],
     active: true,
   },
-
   {
     id: "ieee-transactions-pattern-analysis-machine-intelligence",
-
-    name:
-      "IEEE Transactions on Pattern Analysis and Machine Intelligence",
-
-    aliases: [
-      "TPAMI",
-      "IEEE TPAMI",
-    ],
-
-    publisherId:
-      "ieee",
-
-    disciplines: [
-      "Computer Science",
-      "Artificial Intelligence",
-      "Computer Vision",
-    ],
-
+    name: "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+    aliases: ["TPAMI", "IEEE TPAMI"],
+    publisherId: "ieee",
+    disciplines: ["Computer Science", "Artificial Intelligence", "Computer Vision"],
     active: true,
   },
 
-  /*
-   * Frontiers
-   */
-
+  /* Frontiers */
   {
     id: "frontiers-bioengineering-biotechnology",
-
-    name:
-      "Frontiers in Bioengineering and Biotechnology",
-
+    name: "Frontiers in Bioengineering and Biotechnology",
     aliases: [],
-
-    publisherId:
-      "frontiers",
-
-    disciplines: [
-      "Bioengineering",
-      "Biotechnology",
-      "Biomedical Engineering",
-    ],
-
+    publisherId: "frontiers",
+    disciplines: ["Bioengineering", "Biotechnology", "Biomedical Engineering"],
     active: true,
   },
-
   {
     id: "frontiers-neuroscience",
-
-    name:
-      "Frontiers in Neuroscience",
-
+    name: "Frontiers in Neuroscience",
     aliases: [],
-
-    publisherId:
-      "frontiers",
-
-    disciplines: [
-      "Neuroscience",
-      "Medicine",
-      "Biology",
-    ],
-
+    publisherId: "frontiers",
+    disciplines: ["Neuroscience", "Medicine", "Biology"],
     active: true,
   },
 
-  /*
-   * MDPI
-   */
-
+  /* MDPI */
   {
     id: "mdpi-materials",
-
-    name:
-      "Materials",
-
+    name: "Materials",
     aliases: [],
-
-    publisherId:
-      "mdpi",
-
-    disciplines: [
-      "Materials Science",
-    ],
-
+    publisherId: "mdpi",
+    disciplines: ["Materials Science"],
     active: true,
   },
-
   {
     id: "mdpi-sensors",
-
-    name:
-      "Sensors",
-
+    name: "Sensors",
     aliases: [],
-
-    publisherId:
-      "mdpi",
-
-    disciplines: [
-      "Sensors",
-      "Engineering",
-      "Electronics",
-    ],
-
+    publisherId: "mdpi",
+    disciplines: ["Sensors", "Engineering", "Electronics"],
     active: true,
   },
 
-  /*
-   * Physics
-   */
-
+  /* Physics */
   {
     id: "aps-physical-review-letters",
-
-    name:
-      "Physical Review Letters",
-
-    aliases: [
-      "PRL",
-    ],
-
-    publisherId:
-      "aps",
-
-    disciplines: [
-      "Physics",
-    ],
-
+    name: "Physical Review Letters",
+    aliases: ["PRL"],
+    publisherId: "aps",
+    disciplines: ["Physics"],
     active: true,
   },
-
   {
     id: "iop-nanotechnology",
-
-    name:
-      "Nanotechnology",
-
+    name: "Nanotechnology",
     aliases: [],
-
-    publisherId:
-      "iop",
-
-    disciplines: [
-      "Nanotechnology",
-      "Physics",
-      "Materials Science",
-    ],
-
+    publisherId: "iop",
+    disciplines: ["Nanotechnology", "Physics", "Materials Science"],
     active: true,
   },
 
-  /*
-   * Medicine
-   */
-
+  /* Medicine */
   {
     id: "bmj-bmj",
-
-    name:
-      "The BMJ",
-
-    aliases: [
-      "BMJ",
-    ],
-
-    publisherId:
-      "bmj",
-
-    disciplines: [
-      "Medicine",
-      "Clinical Medicine",
-      "Public Health",
-    ],
-
+    name: "The BMJ",
+    aliases: ["BMJ"],
+    publisherId: "bmj",
+    disciplines: ["Medicine", "Clinical Medicine", "Public Health"],
     active: true,
   },
-
   {
     id: "jama-jama",
-
-    name:
-      "JAMA",
-
-    aliases: [
-      "Journal of the American Medical Association",
-    ],
-
-    publisherId:
-      "jama-network",
-
-    disciplines: [
-      "Medicine",
-      "Clinical Medicine",
-    ],
-
+    name: "JAMA",
+    aliases: ["Journal of the American Medical Association"],
+    publisherId: "jama-network",
+    disciplines: ["Medicine", "Clinical Medicine"],
     active: true,
   },
 
-  /*
-   * Computing
-   */
-
+  /* Computing */
   {
     id: "acm-communications",
-
-    name:
-      "Communications of the ACM",
-
-    aliases: [
-      "CACM",
-    ],
-
-    publisherId:
-      "acm",
-
-    disciplines: [
-      "Computer Science",
-    ],
-
+    name: "Communications of the ACM",
+    aliases: ["CACM"],
+    publisherId: "acm",
+    disciplines: ["Computer Science"],
     active: true,
   },
 ];
-
 
 /* =========================================================
    Identity helpers
    ========================================================= */
 
-export function getJournalById(
-  journalId: string
-) {
-  return (
-    JOURNALS.find(
-      (journal) =>
-        journal.id ===
-        journalId
-    ) ?? null
-  );
+export function getJournalById(journalId: string) {
+  return JOURNALS.find((journal) => journal.id === journalId) ?? null;
 }
 
-
-export function getJournalsByPublisherId(
-  publisherId: string
-) {
-  return JOURNALS.filter(
-    (journal) =>
-      journal.publisherId ===
-      publisherId
-  );
+export function getJournalsByPublisherId(publisherId: string) {
+  return JOURNALS.filter((journal) => journal.publisherId === publisherId);
 }
