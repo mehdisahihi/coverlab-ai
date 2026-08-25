@@ -22,9 +22,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 from datetime import date
-from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterable
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,11 +38,9 @@ WILEY_2026_XLSX_FALLBACK = (
     "All_Wiley_journals-1786635357360.xlsx"
 )
 
-ELSEVIER_SUBJECT_ROOTS = (
-    "life-sciences",
-    "physical-sciences-and-engineering",
-    "social-sciences-and-humanities",
-    "health",
+ELSEVIER_JOURNAL_CATALOG_URL = "https://www.elsevier.com/products/journals"
+ELSEVIER_SEARCH_API_URL = (
+    "https://www.elsevier.com/api/search/journal-catalog-search"
 )
 
 USER_AGENT = (
@@ -78,6 +74,33 @@ def fetch_bytes(url: str, timeout: int = 90) -> bytes:
 def fetch_text(url: str, timeout: int = 90) -> str:
     payload = fetch_bytes(url, timeout=timeout)
     return payload.decode("utf-8", errors="replace")
+
+
+def post_json(url: str, payload: dict[str, object], timeout: int = 90) -> object:
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Content-Type": "text/plain;charset=UTF-8",
+            "Origin": "https://www.elsevier.com",
+            "Referer": ELSEVIER_JOURNAL_CATALOG_URL,
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        raw = response.read().decode("utf-8", errors="replace")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as error:
+        preview = collapse_space(raw[:500])
+        raise RuntimeError(
+            "Elsevier journal catalog API returned non-JSON content: "
+            f"{preview!r}"
+        ) from error
 
 
 def collapse_space(value: str) -> str:
@@ -320,147 +343,180 @@ def load_wiley_journals(local_xlsx: Path | None = None) -> list[JournalIdentity]
     return journals
 
 
-class ElsevierJournalAnchorParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.current_href: str | None = None
-        self.current_parts: list[str] = []
-        self.items: list[tuple[str, str, str | None]] = []
-
-    @staticmethod
-    def journal_issn_from_href(href: str) -> str | None:
-        parsed = urllib.parse.urlparse(href)
-        path = parsed.path
-        if not path.startswith("/journals/") or path.startswith("/journals/subjects/"):
-            return None
-        final = path.rstrip("/").split("/")[-1]
-        matches = normalize_issn(final)
-        return matches[0] if matches else None
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag != "a" or self.current_href is not None:
-            return
-        href = dict(attrs).get("href")
-        if not href:
-            return
-        if self.journal_issn_from_href(href):
-            self.current_href = href
-            self.current_parts = []
-
-    def handle_data(self, data: str) -> None:
-        if self.current_href is not None:
-            self.current_parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag != "a" or self.current_href is None:
-            return
-        href = self.current_href
-        text = collapse_space(" ".join(self.current_parts))
-        issn = self.journal_issn_from_href(href)
-        self.items.append((href, text, issn))
-        self.current_href = None
-        self.current_parts = []
+def _string_values(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        found: list[str] = []
+        for child in value.values():
+            found.extend(_string_values(child))
+        return found
+    if isinstance(value, list):
+        found = []
+        for child in value:
+            found.extend(_string_values(child))
+        return found
+    return []
 
 
-class TextOnlyParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
+def elsevier_issns(identifiers: object) -> set[str]:
+    found: set[str] = set()
+    if not isinstance(identifiers, dict):
+        return found
 
-    def handle_data(self, data: str) -> None:
-        self.parts.append(data)
+    for key, value in identifiers.items():
+        if "issn" not in str(key).casefold():
+            continue
+        for text in _string_values(value):
+            found.update(normalize_issn(text))
+    return found
 
-    def text(self) -> str:
-        return collapse_space(" ".join(self.parts))
 
-
-def elsevier_page(url: str) -> tuple[list[JournalIdentity], int | None]:
-    page = fetch_text(url)
-
-    anchors = ElsevierJournalAnchorParser()
-    anchors.feed(page)
-
-    generic = {
-        "subscriptions",
-        "subscription options",
-        "read more",
-        "view journal",
-        "learn more",
+def elsevier_api_page(page: int) -> tuple[list[dict[str, object]], int, int]:
+    payload: dict[str, object] = {
+        "query": "",
+        "page": page,
+        "filters": {},
+        "sort": "alphabeticalAsc",
     }
+    data = post_json(ELSEVIER_SEARCH_API_URL, payload)
+    if not isinstance(data, dict):
+        raise RuntimeError("Elsevier journal catalog API returned an invalid payload.")
 
-    by_href: dict[str, JournalIdentity] = {}
-    for href, label, issn in anchors.items:
-        if not label or normalize_name(label) in generic:
-            continue
-        if href in by_href:
-            continue
-        identity = JournalIdentity(name=label)
-        if issn:
-            identity.issn.add(issn)
-        by_href[href] = identity
+    response = data.get("searchResponse")
+    if not isinstance(response, dict):
+        raise RuntimeError("Elsevier journal catalog API omitted searchResponse.")
 
-    text_parser = TextOnlyParser()
-    text_parser.feed(page)
-    text = text_parser.text()
-    count_match = re.search(
-        r"\b\d[\d,]*\s*-\s*\d[\d,]*\s+of\s+([\d,]+)\s+results\b",
-        text,
-        flags=re.IGNORECASE,
-    )
-    total = int(count_match.group(1).replace(",", "")) if count_match else None
+    total = response.get("total")
+    page_info = response.get("pageInfo")
+    items = response.get("items")
+    if not isinstance(total, int) or total <= 0:
+        raise RuntimeError("Elsevier journal catalog API returned an invalid total.")
+    if not isinstance(page_info, dict):
+        raise RuntimeError("Elsevier journal catalog API omitted pageInfo.")
+    if not isinstance(items, list):
+        raise RuntimeError("Elsevier journal catalog API omitted journal items.")
 
-    return list(by_href.values()), total
+    page_size = page_info.get("size")
+    backend_page = page_info.get("page")
+    if not isinstance(page_size, int) or page_size <= 0:
+        raise RuntimeError("Elsevier journal catalog API returned an invalid page size.")
+
+    # The public UI sends one-based page numbers. Its searchResponse pageInfo
+    # reports the corresponding zero-based page index (page=1 -> pageInfo.page=0).
+    expected_backend_page = page - 1
+    if backend_page != expected_backend_page:
+        raise RuntimeError(
+            "Elsevier pagination mismatch: requested page "
+            f"{page}, received backend page {backend_page!r}; refusing a partial update."
+        )
+
+    typed_items: list[dict[str, object]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise RuntimeError("Elsevier journal catalog returned a non-object result.")
+        typed_items.append(item)
+
+    return typed_items, total, page_size
 
 
 def load_elsevier_journals() -> list[JournalIdentity]:
-    by_name: dict[str, JournalIdentity] = {}
-
-    for subject in ELSEVIER_SUBJECT_ROOTS:
-        first_url = (
-            "https://shop.elsevier.com/journals/subjects/"
-            f"{subject}?page=0&type=journals"
+    print("Fetching Elsevier official journal catalog API: page 1")
+    first_items, expected_total, page_size = elsevier_api_page(1)
+    if expected_total < 2500:
+        raise RuntimeError(
+            "Elsevier official catalog returned too few raw journal records "
+            f"({expected_total}); refusing to overwrite the catalog."
         )
-        print(f"Fetching Elsevier subject catalog: {subject}")
-        first_items, total = elsevier_page(first_url)
-        if total is None:
+
+    page_count = max(1, math.ceil(expected_total / page_size))
+    by_name: dict[str, JournalIdentity] = {}
+    seen_backend_ids: set[str] = set()
+    raw_count = 0
+
+    for page in range(1, page_count + 1):
+        if page == 1:
+            items = first_items
+            total = expected_total
+            size = page_size
+        else:
+            if page == 2 or page % 25 == 0 or page == page_count:
+                print(f"Fetching Elsevier official journal catalog API: page {page}/{page_count}")
+            items, total, size = elsevier_api_page(page)
+            time.sleep(0.08)
+
+        if total != expected_total:
             raise RuntimeError(
-                f"Could not determine Elsevier result count for subject {subject}."
+                "Elsevier catalog total changed during sync "
+                f"({expected_total} -> {total}); refusing a potentially inconsistent update."
+            )
+        if size != page_size:
+            raise RuntimeError(
+                "Elsevier catalog page size changed during sync "
+                f"({page_size} -> {size}); refusing a potentially inconsistent update."
             )
 
-        page_count = max(1, math.ceil(total / 50))
-        pages: Iterable[int] = range(page_count)
+        expected_items = min(page_size, expected_total - (page - 1) * page_size)
+        if len(items) != expected_items:
+            raise RuntimeError(
+                "Elsevier catalog returned an incomplete page "
+                f"{page}: expected {expected_items} records, received {len(items)}."
+            )
 
-        for page_index in pages:
-            if page_index == 0:
-                items = first_items
-            else:
-                url = (
-                    "https://shop.elsevier.com/journals/subjects/"
-                    f"{subject}?page={page_index}&type=journals"
-                )
-                items, _ = elsevier_page(url)
-                time.sleep(0.08)
-
-            if not items:
+        for item in items:
+            if item.get("__typename") != "Journal":
                 raise RuntimeError(
-                    "Elsevier catalog parser found no journals on "
-                    f"{subject} page {page_index}; refusing a partial update."
+                    "Elsevier journal-catalog API returned a non-Journal record; "
+                    "refusing to mix unrelated catalog identities."
                 )
 
-            for item in items:
-                normalized = normalize_name(item.name)
-                existing = by_name.get(normalized)
-                if existing is None:
-                    by_name[normalized] = item
-                else:
-                    existing.issn.update(item.issn)
+            backend_id = item.get("id")
+            if isinstance(backend_id, str) and backend_id:
+                if backend_id in seen_backend_ids:
+                    raise RuntimeError(
+                        "Elsevier pagination repeated backend journal ID "
+                        f"{backend_id!r}; refusing a partial/duplicated update."
+                    )
+                seen_backend_ids.add(backend_id)
+
+            titles = item.get("titles")
+            primary = titles.get("primary") if isinstance(titles, dict) else None
+            title = collapse_space(primary) if isinstance(primary, str) else ""
+            if not title:
+                raise RuntimeError(
+                    "Elsevier journal-catalog API returned a Journal without a primary title."
+                )
+
+            identity = JournalIdentity(
+                name=title,
+                issn=elsevier_issns(item.get("identifiers")),
+            )
+            normalized = normalize_name(title)
+            existing = by_name.get(normalized)
+            if existing is None:
+                by_name[normalized] = identity
+            else:
+                existing.issn.update(identity.issn)
+
+            raw_count += 1
+
+    if raw_count != expected_total:
+        raise RuntimeError(
+            "Elsevier catalog sync did not consume every raw result "
+            f"({raw_count}/{expected_total}); refusing to overwrite the catalog."
+        )
 
     journals = sorted(by_name.values(), key=lambda item: item.name.casefold())
     if len(journals) < 2500:
         raise RuntimeError(
-            "Elsevier official catalog returned too few unique journals "
-            f"({len(journals)}); refusing to overwrite the catalog."
+            "Elsevier official catalog returned too few unique journals after dedupe "
+            f"({len(journals)} from {raw_count} raw records); refusing to overwrite the catalog."
         )
+
+    print(
+        f"Elsevier API returned {raw_count} raw Journal records; "
+        f"deduplicated to {len(journals)} unique titles."
+    )
     return journals
 
 
@@ -549,7 +605,7 @@ def write_elsevier(journals: list[JournalIdentity]) -> int:
     text, count = render_generated_catalog(
         "elsevier",
         "ELSEVIER_GENERATED_JOURNALS",
-        "https://shop.elsevier.com/journals",
+        ELSEVIER_JOURNAL_CATALOG_URL,
         journals,
         CATALOG_DIR / "elsevier.ts",
     )
