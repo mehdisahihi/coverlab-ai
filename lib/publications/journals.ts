@@ -3,6 +3,10 @@ import type {
 } from "./types";
 
 import {
+  ACS_JOURNALS,
+} from "./catalog/acs";
+
+import {
   ELSEVIER_JOURNALS,
 } from "./catalog/elsevier";
 
@@ -27,80 +31,21 @@ import {
  * NOT mean CoverLab has verified technical
  * requirements or AI policy for it.
  *
- * Large publisher catalogs are gradually
- * being moved into:
+ * Large publisher catalogs live in:
  *
  *   lib/publications/catalog/
- *
- * Elsevier is the first migrated publisher.
  */
 
 export const JOURNALS: JournalRecord[] = [
   /*
    * ACS
+   *
+   * ACS identity records now live in:
+   *
+   *   catalog/acs.ts
    */
 
-  {
-    id: "acs-langmuir",
-
-    name:
-      "Langmuir",
-
-    aliases: [],
-
-    publisherId:
-      "acs",
-
-    disciplines: [
-      "Chemistry",
-      "Surface Science",
-      "Colloid Science",
-      "Materials Science",
-    ],
-
-    active: true,
-  },
-
-  {
-    id: "acs-jacs",
-
-    name:
-      "Journal of the American Chemical Society",
-
-    aliases: [
-      "JACS",
-    ],
-
-    publisherId:
-      "acs",
-
-    disciplines: [
-      "Chemistry",
-    ],
-
-    active: true,
-  },
-
-  {
-    id: "acs-nano",
-
-    name:
-      "ACS Nano",
-
-    aliases: [],
-
-    publisherId:
-      "acs",
-
-    disciplines: [
-      "Nanoscience",
-      "Nanotechnology",
-      "Materials Science",
-      "Chemistry",
-    ],
-
-    active: true,
-  },
+  ...ACS_JOURNALS,
 
   /*
    * Elsevier
