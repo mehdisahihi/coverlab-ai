@@ -372,7 +372,7 @@ def elsevier_issns(identifiers: object) -> set[str]:
     return found
 
 
-def elsevier_api_page(page: int) -> tuple[list[dict[str, object]], int, int]:
+def elsevier_api_page(page: int) -> tuple[list[dict[str, object] | None], int, int]:
     payload: dict[str, object] = {
         "query": "",
         "page": page,
@@ -411,10 +411,21 @@ def elsevier_api_page(page: int) -> tuple[list[dict[str, object]], int, int]:
             f"{page}, received backend page {backend_page!r}; refusing a partial update."
         )
 
-    typed_items: list[dict[str, object]] = []
-    for item in items:
+    typed_items: list[dict[str, object] | None] = []
+    for index, item in enumerate(items):
+        if item is None:
+            # Elsevier occasionally includes an explicit null result slot.
+            # The rendered resultsProps list omits such slots, so it cannot be
+            # safely used as a positional fallback identity source.
+            typed_items.append(None)
+            continue
+
         if not isinstance(item, dict):
-            raise RuntimeError("Elsevier journal catalog returned a non-object result.")
+            raise RuntimeError(
+                "Elsevier journal catalog returned an unsupported result type "
+                f"on page {page}, index {index}: {type(item).__name__}."
+            )
+
         typed_items.append(item)
 
     return typed_items, total, page_size
@@ -433,6 +444,8 @@ def load_elsevier_journals() -> list[JournalIdentity]:
     by_name: dict[str, JournalIdentity] = {}
     seen_backend_ids: set[str] = set()
     raw_count = 0
+    journal_count = 0
+    null_count = 0
 
     for page in range(1, page_count + 1):
         if page == 1:
@@ -464,6 +477,12 @@ def load_elsevier_journals() -> list[JournalIdentity]:
             )
 
         for item in items:
+            raw_count += 1
+
+            if item is None:
+                null_count += 1
+                continue
+
             if item.get("__typename") != "Journal":
                 raise RuntimeError(
                     "Elsevier journal-catalog API returned a non-Journal record; "
@@ -498,7 +517,7 @@ def load_elsevier_journals() -> list[JournalIdentity]:
             else:
                 existing.issn.update(identity.issn)
 
-            raw_count += 1
+            journal_count += 1
 
     if raw_count != expected_total:
         raise RuntimeError(
@@ -514,7 +533,8 @@ def load_elsevier_journals() -> list[JournalIdentity]:
         )
 
     print(
-        f"Elsevier API returned {raw_count} raw Journal records; "
+        f"Elsevier API returned {raw_count} raw result slots: "
+        f"{journal_count} Journal records + {null_count} null backend slots; "
         f"deduplicated to {len(journals)} unique titles."
     )
     return journals
