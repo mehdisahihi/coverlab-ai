@@ -6,7 +6,7 @@ import type {
 
 function configuredSiteOrigin() {
   const raw =
-    process.env.NEXT_PUBLIC_SITE_URL
+    process.env.SITE_URL
       ?.trim();
 
   if (!raw) {
@@ -47,6 +47,44 @@ function configuredSiteOrigin() {
   }
 }
 
+function vercelPreviewOrigin() {
+  if (
+    process.env.VERCEL !== "1" ||
+    process.env.VERCEL_ENV !== "preview"
+  ) {
+    return null;
+  }
+
+  const raw =
+    process.env.VERCEL_BRANCH_URL
+      ?.trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const url =
+      new URL(`https://${raw}`);
+
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash ||
+      url.host !== raw
+    ) {
+      return null;
+    }
+
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 function codespacesOrigin() {
   const codespaceName =
     process.env.CODESPACE_NAME;
@@ -71,6 +109,13 @@ export function resolveTrustedAppOrigin(
 
   if (configured) {
     return configured;
+  }
+
+  const preview =
+    vercelPreviewOrigin();
+
+  if (preview) {
+    return preview;
   }
 
   const codespace =

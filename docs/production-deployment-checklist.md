@@ -15,7 +15,7 @@ This checklist is platform-neutral. Do not merge or deploy to the public product
 Set:
 
 ```text
-NEXT_PUBLIC_SITE_URL=https://your-production-host.example
+SITE_URL=https://your-production-host.example
 ```
 
 Requirements:
@@ -30,7 +30,7 @@ The auth confirmation route fails closed in production if a trusted canonical or
 ## 3. Required production environment variables
 
 ```text
-NEXT_PUBLIC_SITE_URL
+SITE_URL
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -121,7 +121,7 @@ Verify on the production hostname:
 
 - HTTPS works and HTTP redirects to HTTPS at the hosting/CDN layer.
 - Security headers are present: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
-- `Strict-Transport-Security` is present when the production build has a valid HTTPS `NEXT_PUBLIC_SITE_URL`.
+- `Strict-Transport-Security` is present when the production build has a valid HTTPS `SITE_URL`.
 - Signup/login/logout work with Turnstile enabled.
 - Email confirmation and password reset return to the production hostname.
 - Authenticated project create/resume/save/delete works.

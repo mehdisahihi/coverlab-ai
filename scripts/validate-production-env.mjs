@@ -31,7 +31,7 @@ function requireValue(name) {
 }
 
 function validateSiteUrl() {
-  const value = requireValue("NEXT_PUBLIC_SITE_URL");
+  const value = requireValue("SITE_URL");
 
   if (!value) {
     return;
@@ -41,7 +41,7 @@ function validateSiteUrl() {
     const url = new URL(value);
 
     if (url.protocol !== "https:") {
-      errors.push("NEXT_PUBLIC_SITE_URL must use https in production.");
+      errors.push("SITE_URL must use https in production.");
     }
 
     if (
@@ -52,15 +52,15 @@ function validateSiteUrl() {
       url.hash
     ) {
       errors.push(
-        "NEXT_PUBLIC_SITE_URL must be an origin only, with no credentials, path, query, or fragment."
+        "SITE_URL must be an origin only, with no credentials, path, query, or fragment."
       );
     }
 
     if (["localhost", "127.0.0.1", "::1"].includes(url.hostname)) {
-      errors.push("NEXT_PUBLIC_SITE_URL must not point to localhost in production.");
+      errors.push("SITE_URL must not point to localhost in production.");
     }
   } catch {
-    errors.push("NEXT_PUBLIC_SITE_URL must be a valid absolute URL.");
+    errors.push("SITE_URL must be a valid absolute URL.");
   }
 }
 
