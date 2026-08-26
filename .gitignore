@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python generated cache
+__pycache__/
+*.py[cod]
+
+# Local scratch/download artifacts
+/tmp/
