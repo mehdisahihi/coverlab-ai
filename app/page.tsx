@@ -175,6 +175,141 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="border-t border-white/10">
+        <div className="mx-auto max-w-7xl px-6 py-24">
+          <div className="max-w-3xl">
+            <div className="inline-flex rounded-full border border-violet-400/20 bg-violet-400/10 px-4 py-2 text-sm text-violet-200">
+              Launch pricing
+            </div>
+
+            <p className="mt-6 text-sm font-medium uppercase tracking-widest text-cyan-300">
+              Pricing
+            </p>
+
+            <h2 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
+              Project-based pricing. No subscription.
+            </h2>
+
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
+              Pay for the publication artwork you need. Create it directly with
+              CoverLab, or ask us to handle the scientific-to-visual production
+              for you.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 lg:grid-cols-2">
+            <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 md:p-10">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-cyan-300">Self-service</p>
+                  <h3 className="mt-3 text-2xl font-semibold">Graphical Abstract</h3>
+                </div>
+                <div className="text-right">
+                  <div className="text-4xl font-semibold">€99</div>
+                  <div className="mt-1 text-sm text-slate-500">per project</div>
+                </div>
+              </div>
+
+              <p className="mt-6 leading-7 text-slate-400">
+                Build a clear scientific visual story while keeping direct control
+                of the concepts, composition and refinement process.
+              </p>
+
+              <ul className="mt-8 space-y-3 text-sm leading-6 text-slate-300">
+                <li>Research-driven visual direction</li>
+                <li>Reference assets and scientific constraints</li>
+                <li>Iterative AI generation and refinement</li>
+                <li>Policy-aware publication workflow</li>
+              </ul>
+
+              <a
+                href="/create"
+                className="mt-9 inline-flex rounded-full bg-white px-6 py-3 font-medium text-black transition hover:bg-slate-200"
+              >
+                Explore the workflow →
+              </a>
+            </article>
+
+            <article className="relative overflow-hidden rounded-3xl border border-cyan-400/30 bg-gradient-to-b from-cyan-400/[0.08] to-white/[0.03] p-8 md:p-10">
+              <div className="absolute right-0 top-0 rounded-bl-2xl border-b border-l border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-200">
+                Premium publication artwork
+              </div>
+
+              <div className="flex flex-wrap items-start justify-between gap-4 pr-0 pt-6 sm:pr-24 sm:pt-0">
+                <div>
+                  <p className="text-sm font-medium text-cyan-300">Self-service</p>
+                  <h3 className="mt-3 text-2xl font-semibold">Journal Cover</h3>
+                </div>
+                <div className="text-right">
+                  <div className="text-4xl font-semibold">€149</div>
+                  <div className="mt-1 text-sm text-slate-500">per project</div>
+                </div>
+              </div>
+
+              <p className="mt-6 leading-7 text-slate-400">
+                Develop scientifically responsible cover artwork with a strong
+                editorial composition and publication-focused visual direction.
+              </p>
+
+              <ul className="mt-8 space-y-3 text-sm leading-6 text-slate-300">
+                <li>Research-driven visual storytelling</li>
+                <li>Journal-cover composition and crop awareness</li>
+                <li>Reference assets and scientific constraints</li>
+                <li>Iterative AI generation and refinement</li>
+              </ul>
+
+              <a
+                href="/create"
+                className="mt-9 inline-flex rounded-full bg-white px-6 py-3 font-medium text-black transition hover:bg-slate-200"
+              >
+                Explore the workflow →
+              </a>
+            </article>
+          </div>
+
+          <div className="mt-8 rounded-3xl border border-violet-400/20 bg-violet-400/[0.06] p-8 md:p-10">
+            <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-center">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-widest text-violet-300">
+                  CoverLab-assisted production
+                </p>
+                <h3 className="mt-4 text-3xl font-semibold tracking-tight">
+                  Prefer us to handle the production?
+                </h3>
+                <p className="mt-4 max-w-2xl leading-7 text-slate-400">
+                  Send us your research context and scientific assets. We review
+                  the material, develop the visual direction and handle the
+                  production workflow with you instead of asking you to direct
+                  every generation yourself.
+                </p>
+                <p className="mt-5 text-sm leading-6 text-slate-500">
+                  Assisted pricing starts from the amounts shown and may vary with
+                  scientific complexity, source material and production scope.
+                  Final suitability remains subject to the target journal or
+                  publisher requirements.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
+                  <div className="text-sm text-slate-400">Graphical Abstract</div>
+                  <div className="mt-2 text-3xl font-semibold">from €249</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
+                  <div className="text-sm text-slate-400">Journal Cover</div>
+                  <div className="mt-2 text-3xl font-semibold">from €399</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-white/10 pt-6 text-sm text-slate-500">
+              Assisted ordering and online payment will open at launch.
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
