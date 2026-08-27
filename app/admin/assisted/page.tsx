@@ -403,7 +403,7 @@ export default async function AssistedAdminPage({
                           {ASSISTED_REQUEST_STATUS_LABELS[request.status]}
                         </span>
                         <span className="text-xs text-slate-500">
-                          Received {formatDateTime(request.created_at)} CET
+                          Received {formatDateTime(request.created_at)} Paris time
                         </span>
                       </div>
 
@@ -553,7 +553,7 @@ export default async function AssistedAdminPage({
                         </p>
 
                         <p className="mt-6 text-xs text-slate-600">
-                          Last updated {formatDateTime(request.updated_at)} CET
+                          Last updated {formatDateTime(request.updated_at)} Paris time
                         </p>
                       </div>
                     </div>
