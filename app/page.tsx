@@ -296,16 +296,28 @@ export default async function Home() {
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
                   <div className="text-sm text-slate-400">Graphical Abstract</div>
                   <div className="mt-2 text-3xl font-semibold">from €249</div>
+                  <a
+                    href="/assisted?service=graphical_abstract"
+                    className="mt-4 inline-flex text-sm font-medium text-violet-200 transition hover:text-white"
+                  >
+                    Request a quote →
+                  </a>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
                   <div className="text-sm text-slate-400">Journal Cover</div>
                   <div className="mt-2 text-3xl font-semibold">from €399</div>
+                  <a
+                    href="/assisted?service=journal_cover"
+                    className="mt-4 inline-flex text-sm font-medium text-violet-200 transition hover:text-white"
+                  >
+                    Request a quote →
+                  </a>
                 </div>
               </div>
             </div>
 
             <div className="mt-8 border-t border-white/10 pt-6 text-sm text-slate-500">
-              Assisted ordering and online payment will open at launch.
+              Requesting a quote is free. We review the scope and confirm the final price before any payment.
             </div>
           </div>
         </div>
