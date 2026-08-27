@@ -10,6 +10,9 @@ import {
 import {
   getAuthenticatedContext,
 } from "@/lib/auth/authenticated";
+import {
+  sendAssistedProductionNotification,
+} from "@/lib/notifications/assistedProduction";
 
 const assistedRequestSchema =
   z.object({
@@ -260,6 +263,62 @@ export async function submitAssistedRequest(
         "We could not save your request. Please try again.",
         request.serviceType
       )
+    );
+  }
+
+  try {
+    const notification =
+      await sendAssistedProductionNotification({
+        requestId:
+          data.id,
+        serviceType:
+          request.serviceType,
+        projectId:
+          request.projectId ||
+          null,
+        contactName:
+          request.contactName,
+        contactEmail:
+          request.contactEmail,
+        institution:
+          request.institution,
+        paperTitle:
+          request.paperTitle,
+        targetJournal:
+          request.targetJournal,
+        researchSummary:
+          request.researchSummary,
+        deadline:
+          request.deadline,
+        notes:
+          request.notes,
+      });
+
+    if (!notification.sent) {
+      console.warn(
+        "Assisted production notification not sent:",
+        {
+          requestId:
+            data.id,
+          reason:
+            notification.reason,
+          status:
+            notification.status ??
+            null,
+        }
+      );
+    }
+  } catch (notificationError) {
+    console.error(
+      "Assisted production notification failed:",
+      {
+        requestId:
+          data.id,
+        error:
+          notificationError instanceof Error
+            ? notificationError.message
+            : "Unknown notification error",
+      }
     );
   }
 
