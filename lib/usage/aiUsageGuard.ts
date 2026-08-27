@@ -85,6 +85,73 @@ export async function reserveAiUsageForRequest(
     };
   }
 
+  /*
+   * Pre-revenue safety boundary:
+   *
+   * Self-service payments are not open yet, so ordinary users must
+   * not start billable provider work. The internal CoverLab admin
+   * account remains able to exercise the complete AI workflow in
+   * Preview/Production for controlled testing.
+   *
+   * This check happens before reserve_ai_usage and before the route
+   * handler can create an OpenAI request.
+   */
+  const {
+    data: isInternalAdmin,
+    error: adminAccessError,
+  } =
+    await supabase.rpc(
+      "is_coverlab_assisted_admin"
+    );
+
+  if (adminAccessError) {
+    console.error(
+      "AI pre-revenue access check failed:",
+      {
+        code:
+          adminAccessError.code,
+        message:
+          adminAccessError.message,
+      }
+    );
+
+    return {
+      ok: false,
+      response:
+        Response.json(
+          {
+            error:
+              "AI access controls are temporarily unavailable. No AI request was started.",
+            code:
+              "AI_ACCESS_CHECK_UNAVAILABLE",
+          },
+          {
+            status: 503,
+          }
+        ),
+    };
+  }
+
+  if (
+    isInternalAdmin !== true
+  ) {
+    return {
+      ok: false,
+      response:
+        Response.json(
+          {
+            error:
+              "Self-service AI generation is in early access. Payments are not open yet, so no charge was attempted.",
+            code:
+              "SELF_SERVICE_PAYMENTS_NOT_OPEN",
+          },
+          {
+            status: 402,
+          }
+        ),
+    };
+  }
+
   const {
     data,
     error,
