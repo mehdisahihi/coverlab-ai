@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import {
   signOut,
 } from "@/app/auth/actions";
@@ -35,16 +37,21 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#070B14] text-white">
-      {/* Navigation */}
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
         <div className="text-xl font-semibold tracking-tight">
           CoverLab<span className="text-cyan-400">AI</span>
         </div>
 
         <div className="hidden gap-8 text-sm text-slate-300 md:flex">
-          <a href="#how">How it works</a>
-          <a href="#examples">Examples</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#how" className="transition hover:text-white">
+            How it works
+          </a>
+          <a href="#formats" className="transition hover:text-white">
+            Artwork types
+          </a>
+          <a href="#pricing" className="transition hover:text-white">
+            Pricing
+          </a>
         </div>
 
         <div className="flex items-center gap-3">
@@ -74,23 +81,23 @@ export default async function Home() {
         </div>
       </nav>
 
-      {/* Hero */}
       <section className="mx-auto grid max-w-7xl items-center gap-14 px-6 pb-24 pt-20 lg:grid-cols-2">
         <div>
           <div className="mb-6 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-300">
-            AI-powered scientific cover design
+            AI-assisted scientific publication artwork
           </div>
 
           <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight md:text-7xl">
             Turn your research into
             <span className="block bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-transparent">
-              remarkable cover art.
+              clear publication artwork.
             </span>
           </h1>
 
           <p className="mt-7 max-w-xl text-lg leading-8 text-slate-400">
-            Upload your research, choose the scientific story you want to tell,
-            and direct AI to create journal-ready scientific artwork.
+            Create research-driven graphical abstracts and journal-cover concepts
+            with AI-assisted visual direction, scientific constraints and iterative
+            refinement.
           </p>
 
           <div className="mt-10 flex flex-wrap gap-4">
@@ -98,19 +105,20 @@ export default async function Home() {
               href="/create"
               className="rounded-full bg-white px-7 py-3.5 font-medium text-black transition hover:bg-slate-200"
             >
-              Create your cover →
+              Create artwork →
             </a>
 
             <a
-              href="#examples"
+              href="#formats"
               className="rounded-full border border-white/20 px-7 py-3.5 font-medium text-white transition hover:bg-white/10"
             >
-              View examples
+              See artwork types
             </a>
           </div>
 
-          <p className="mt-5 text-sm text-slate-500">
-            No design experience required.
+          <p className="mt-5 max-w-xl text-sm leading-6 text-slate-500">
+            No design experience required. Publisher and journal AI policies vary,
+            so final suitability should always be verified with your target venue.
           </p>
         </div>
 
@@ -118,9 +126,13 @@ export default async function Home() {
           <div className="absolute -inset-16 bg-cyan-500/10 blur-3xl" />
 
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
-            <img
+            <Image
               src="/hero-cover.png"
-              alt="AI-generated scientific cover concept"
+              alt="Scientific publication artwork concept generated with CoverLab AI"
+              width={1200}
+              height={1500}
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              priority
               className="aspect-[4/5] w-full rounded-2xl object-cover"
             />
 
@@ -134,7 +146,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* How it works */}
       <section id="how" className="border-t border-white/10 bg-white/[0.02]">
         <div className="mx-auto max-w-7xl px-6 py-24">
           <p className="text-sm font-medium uppercase tracking-widest text-cyan-300">
@@ -142,25 +153,25 @@ export default async function Home() {
           </p>
 
           <h2 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight">
-            Your research. Your direction. Your cover.
+            Your research. Your direction. Your artwork.
           </h2>
 
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {[
               [
                 "01",
-                "Tell us about your research",
-                "Add your title, abstract, target journal and scientific assets.",
+                "Add your research context",
+                "Provide your title, abstract, target journal and scientific assets.",
               ],
               [
                 "02",
-                "Choose your visual story",
-                "Our AI turns your research into multiple scientifically meaningful concepts.",
+                "Choose the visual story",
+                "CoverLab turns your research context into scientifically meaningful visual directions.",
               ],
               [
                 "03",
-                "Direct & refine",
-                "Choose a concept and control the composition, style and visual emphasis.",
+                "Direct and refine",
+                "Choose a direction and control composition, style and visual emphasis through iteration.",
               ],
             ].map(([number, title, text]) => (
               <div
@@ -176,8 +187,50 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="border-t border-white/10">
+      <section id="formats" className="border-t border-white/10">
+        <div className="mx-auto max-w-7xl px-6 py-24">
+          <div className="max-w-3xl">
+            <p className="text-sm font-medium uppercase tracking-widest text-violet-300">
+              Artwork types
+            </p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
+              Built for two common publication needs.
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-slate-400">
+              Start from the same research context, then shape the visual output for
+              either concise scientific communication or editorial cover impact.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+              <p className="text-sm font-medium text-cyan-300">Graphical Abstract</p>
+              <h3 className="mt-3 text-2xl font-semibold">
+                Explain the scientific story clearly.
+              </h3>
+              <p className="mt-4 leading-7 text-slate-400">
+                Translate a paper into a focused visual summary that emphasizes the
+                central mechanism, workflow, comparison or finding without replacing
+                the underlying scientific judgment.
+              </p>
+            </article>
+
+            <article className="rounded-3xl border border-violet-400/20 bg-violet-400/[0.05] p-8">
+              <p className="text-sm font-medium text-violet-300">Journal Cover</p>
+              <h3 className="mt-3 text-2xl font-semibold">
+                Develop a publication-focused visual concept.
+              </h3>
+              <p className="mt-4 leading-7 text-slate-400">
+                Build a stronger editorial composition around the research theme while
+                retaining scientific constraints and leaving final acceptance to the
+                journal or publisher.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="border-t border-white/10 bg-white/[0.02]">
         <div className="mx-auto max-w-7xl px-6 py-24">
           <div className="max-w-3xl">
             <div className="inline-flex rounded-full border border-violet-400/20 bg-violet-400/10 px-4 py-2 text-sm text-violet-200">
@@ -194,8 +247,8 @@ export default async function Home() {
 
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
               Pay for the publication artwork you need. Create it directly with
-              CoverLab, or ask us to handle the scientific-to-visual production
-              for you.
+              CoverLab, or ask us to handle the scientific-to-visual production for
+              you.
             </p>
           </div>
 
@@ -213,8 +266,8 @@ export default async function Home() {
               </div>
 
               <p className="mt-6 leading-7 text-slate-400">
-                Build a clear scientific visual story while keeping direct control
-                of the concepts, composition and refinement process.
+                Build a clear scientific visual story while keeping direct control of
+                concepts, composition and refinement.
               </p>
 
               <ul className="mt-8 space-y-3 text-sm leading-6 text-slate-300">
@@ -279,16 +332,16 @@ export default async function Home() {
                   Prefer us to handle the production?
                 </h3>
                 <p className="mt-4 max-w-2xl leading-7 text-slate-400">
-                  Send us your research context and scientific assets. We review
-                  the material, develop the visual direction and handle the
-                  production workflow with you instead of asking you to direct
-                  every generation yourself.
+                  Send us your research context and scientific assets. We review the
+                  material, develop the visual direction and handle the production
+                  workflow with you instead of asking you to direct every generation
+                  yourself.
                 </p>
                 <p className="mt-5 text-sm leading-6 text-slate-500">
                   Assisted pricing starts from the amounts shown and may vary with
-                  scientific complexity, source material and production scope.
-                  Final suitability remains subject to the target journal or
-                  publisher requirements.
+                  scientific complexity, source material and production scope. Final
+                  suitability remains subject to the target journal or publisher
+                  requirements.
                 </p>
               </div>
 
@@ -317,11 +370,25 @@ export default async function Home() {
             </div>
 
             <div className="mt-8 border-t border-white/10 pt-6 text-sm text-slate-500">
-              Requesting a quote is free. We review the scope and confirm the final price before any payment.
+              Requesting a quote is free. We review the scope and confirm the final
+              price before any payment.
             </div>
           </div>
         </div>
       </section>
+
+      <footer className="border-t border-white/10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-10 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <span className="font-medium text-slate-300">CoverLabAI</span> — scientific
+            publication artwork workflows.
+          </p>
+          <p>
+            AI use and final artwork suitability remain subject to publisher and
+            journal requirements.
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
