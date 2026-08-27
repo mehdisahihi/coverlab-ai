@@ -35,7 +35,7 @@ export const metadata: Metadata = {
       "Create research-driven graphical abstracts and journal-cover concepts with AI-assisted scientific visual workflows.",
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "CoverLab AI | Scientific Publication Artwork",
     description:
       "Create research-driven graphical abstracts and journal-cover concepts with AI-assisted scientific visual workflows.",
