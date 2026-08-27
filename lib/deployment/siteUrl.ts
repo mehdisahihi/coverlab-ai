@@ -101,9 +101,7 @@ function codespacesOrigin() {
   return `https://${codespaceName}-3000.${forwardingDomain}`;
 }
 
-export function resolveTrustedAppOrigin(
-  request: NextRequest
-) {
+export function resolveTrustedAppOriginFromEnvironment() {
   const configured =
     configuredSiteOrigin();
 
@@ -123,6 +121,19 @@ export function resolveTrustedAppOrigin(
 
   if (codespace) {
     return codespace;
+  }
+
+  return null;
+}
+
+export function resolveTrustedAppOrigin(
+  request: NextRequest
+) {
+  const trusted =
+    resolveTrustedAppOriginFromEnvironment();
+
+  if (trusted) {
+    return trusted;
   }
 
   if (

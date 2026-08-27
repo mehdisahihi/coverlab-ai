@@ -11,6 +11,9 @@ import {
 } from "next/navigation";
 
 import {
+  resolveTrustedAppOriginFromEnvironment,
+} from "@/lib/deployment/siteUrl";
+import {
   createClient,
 } from "@/lib/supabase/server";
 
@@ -275,6 +278,19 @@ export async function signUp(
     );
   }
 
+  const redirectOrigin =
+    resolveTrustedAppOriginFromEnvironment();
+
+  if (!redirectOrigin) {
+    redirect(
+      loginUrl({
+        error:
+          "Account email redirects are temporarily unavailable.",
+        next,
+      })
+    );
+  }
+
   const supabase =
     await createClient();
 
@@ -286,6 +302,8 @@ export async function signUp(
       ...credentials,
       options: {
         captchaToken,
+        emailRedirectTo:
+          redirectOrigin,
       },
     });
 
@@ -353,6 +371,18 @@ export async function requestPasswordReset(
     );
   }
 
+  const redirectOrigin =
+    resolveTrustedAppOriginFromEnvironment();
+
+  if (!redirectOrigin) {
+    redirect(
+      forgotPasswordUrl({
+        error:
+          "Password reset is temporarily unavailable. Please try again later.",
+      })
+    );
+  }
+
   const supabase =
     await createClient();
 
@@ -363,6 +393,8 @@ export async function requestPasswordReset(
       email.trim(),
       {
         captchaToken,
+        redirectTo:
+          redirectOrigin,
       }
     );
 
