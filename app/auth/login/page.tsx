@@ -48,7 +48,7 @@ export default async function LoginPage({
 
         <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-7">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300">
-            Research workspace
+            Private research workspace
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
@@ -56,7 +56,7 @@ export default async function LoginPage({
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            Your account keeps publication projects, artwork versions and policy acknowledgements tied to you.
+            This CoverLab deployment is for personal use only. Public account creation is disabled.
           </p>
 
           {params.error && (
@@ -74,7 +74,7 @@ export default async function LoginPage({
           <AuthForm next={next} />
 
           <p className="mt-6 text-xs leading-5 text-slate-500">
-            New accounts require email confirmation. Bot protection is provided by Cloudflare Turnstile.
+            Access is restricted to the authorized personal account. Bot protection is provided by Cloudflare Turnstile.
           </p>
         </div>
       </div>

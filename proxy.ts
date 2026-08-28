@@ -18,11 +18,8 @@ export const config = {
   matcher: [
     "/create/:path*",
     "/projects/:path*",
-    "/api/projects/:path*",
-    "/api/concepts",
-    "/api/production-brief",
-    "/api/generate-artwork",
-    "/api/refine-artwork",
-    "/api/enhance-publication-artwork/:path*",
+    "/assisted/:path*",
+    "/admin/:path*",
+    "/api/:path*",
   ],
 };

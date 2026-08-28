@@ -21,6 +21,14 @@ function isProtectedBrowserPath(
     pathname === "/projects" ||
     pathname.startsWith(
       "/projects/"
+    ) ||
+    pathname === "/assisted" ||
+    pathname.startsWith(
+      "/assisted/"
+    ) ||
+    pathname === "/admin" ||
+    pathname.startsWith(
+      "/admin/"
     )
   );
 }
@@ -29,21 +37,9 @@ function isProtectedApiPath(
   pathname: string
 ) {
   return (
-    pathname === "/api/projects" ||
+    pathname === "/api" ||
     pathname.startsWith(
-      "/api/projects/"
-    ) ||
-    pathname === "/api/concepts" ||
-    pathname ===
-      "/api/production-brief" ||
-    pathname ===
-      "/api/generate-artwork" ||
-    pathname ===
-      "/api/refine-artwork" ||
-    pathname ===
-      "/api/enhance-publication-artwork" ||
-    pathname.startsWith(
-      "/api/enhance-publication-artwork/"
+      "/api/"
     )
   );
 }
@@ -153,6 +149,17 @@ export async function updateSession(
 
   const pathname =
     request.nextUrl.pathname;
+  const protectedApiPath =
+    isProtectedApiPath(
+      pathname
+    );
+  const protectedBrowserPath =
+    isProtectedBrowserPath(
+      pathname
+    );
+  const protectedPath =
+    protectedApiPath ||
+    protectedBrowserPath;
   const unauthenticated =
     Boolean(
       error ||
@@ -160,9 +167,7 @@ export async function updateSession(
     );
 
   if (
-    isProtectedApiPath(
-      pathname
-    ) &&
+    protectedApiPath &&
     unauthenticated
   ) {
     return jsonResponse(
@@ -178,9 +183,7 @@ export async function updateSession(
   }
 
   if (
-    isProtectedBrowserPath(
-      pathname
-    ) &&
+    protectedBrowserPath &&
     unauthenticated
   ) {
     const redirectUrl =
@@ -200,6 +203,101 @@ export async function updateSession(
         redirectUrl
       )
     );
+  }
+
+  if (
+    protectedPath &&
+    !unauthenticated
+  ) {
+    const {
+      data: hasPersonalAccess,
+      error: personalAccessError,
+    } =
+      await supabase.rpc(
+        "is_coverlab_assisted_admin"
+      );
+
+    if (personalAccessError) {
+      console.error(
+        "Personal workspace access check failed:",
+        {
+          code:
+            personalAccessError.code,
+          message:
+            personalAccessError.message,
+        }
+      );
+
+      if (protectedApiPath) {
+        return jsonResponse(
+          response,
+          {
+            error:
+              "Private workspace access could not be verified.",
+            code:
+              "PERSONAL_ACCESS_CHECK_UNAVAILABLE",
+          },
+          {
+            status: 503,
+          }
+        );
+      }
+
+      return copySessionCookies(
+        response,
+        new NextResponse(
+          "Private workspace access could not be verified.",
+          {
+            status: 503,
+            headers: {
+              "Content-Type":
+                "text/plain; charset=utf-8",
+            },
+          }
+        )
+      );
+    }
+
+    if (
+      hasPersonalAccess !==
+      true
+    ) {
+      await supabase.auth.signOut();
+
+      if (protectedApiPath) {
+        return jsonResponse(
+          response,
+          {
+            error:
+              "This CoverLab workspace is private.",
+            code:
+              "PERSONAL_ACCESS_REQUIRED",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
+      const redirectUrl =
+        request.nextUrl.clone();
+
+      redirectUrl.pathname =
+        "/auth/login";
+      redirectUrl.search =
+        "";
+      redirectUrl.searchParams.set(
+        "error",
+        "This CoverLab workspace is private."
+      );
+
+      return copySessionCookies(
+        response,
+        NextResponse.redirect(
+          redirectUrl
+        )
+      );
+    }
   }
 
   /*
